@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Business management app for boutique inventory, customers, orders, and finances">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="My LittleBoutique">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <title>Side Hustle Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --border: #334155;
+        }
+
+        /* Mobile-first navigation */
+        .navbar {
+            background: var(--primary);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+        }
+
+        .nav-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .nav-btn.active {
+            background: rgba(255,255,255,0.4);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Main container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Section visibility */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Cards and forms */
+        .card {
+            background: var(--card);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+            cursor: pointer;
+        }
+
+        label:has(input[type="checkbox"]) {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Items list */
+        .item-card {
+            background: var(--card);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .item-info {
+            flex: 1;
+            width: 100%;
+        }
+
+        .item-image {
+            width: 100%;
+            max-width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.375rem;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .item-meta {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* Grid for desktop */
+        @media (min-width: 768px) {
+            .items-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 1rem;
+            }
+
+            .item-card {
+                flex-direction: column;
+            }
+        }
+
+        /* Profit preview */
+        .profit-preview {
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: #64748b;
+        }
+        .profit-preview.positive { background: #dcfce7; border-color: #86efac; color: #166534; }
+        .profit-preview.negative { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+        /* Stats dashboard */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* Empty state */
+        .empty {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* Transaction list */
+        .transaction {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        .transaction:last-child {
+            border-bottom: none;
+        }
+
+        .transaction-type {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .transaction-amount {
+            font-weight: 600;
+        }
+
+        .transaction-income {
+            color: var(--secondary);
+        }
+
+        .transaction-expense {
+            color: var(--danger);
+        }
+
+        /* Password Modal */
+        #passwordModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .password-modal-content {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+        }
+
+        .password-modal-content h2 {
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+        }
+
+        .password-modal-content input {
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .password-modal-content .btn {
+            width: 100%;
+        }
+
+        .lock-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            transition: background 0.2s;
+            margin-left: auto;
+        }
+
+        .lock-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .container {
+                padding: 0.5rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .navbar {
+                gap: 0.25rem;
+            }
+
+            .nav-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <button class="nav-btn active" onclick="showSection('dashboard')">📊 Dashboard</button>
+        <button class="nav-btn" onclick="showSection('inventory')">📦 Inventory</button>
+        <button class="nav-btn" onclick="showSection('customers')">👥 Customers</button>
+        <button class="nav-btn" onclick="showSection('orders')">📋 Orders</button>
+        <button class="nav-btn" onclick="showSection('finance')">💰 Finance</button>
+        <button class="nav-btn" onclick="showSection('settings')">⚙️ Settings</button>
+        <div id="autoSaveIndicator" style="margin-left: auto; display: flex; align-items: center; font-size: 0.75rem; color: white; padding: 0.5rem 1rem; opacity: 0; transition: opacity 0.3s;">
+            ✅ Auto-saved
+        </div>
+        <button class="lock-btn" onclick="lockApp()" title="Lock app">🔒 Lock</button>
+    </nav>
+
+    <!-- PASSWORD MODAL -->
+    <div id="passwordModal" style="display: none;">
+        <div class="password-modal-content">
+            <h2>🔐 Enter Password</h2>
+            <input type="password" id="passwordInput" placeholder="Password" onkeypress="if(event.key==='Enter') verifyPassword()">
+            <button class="btn btn-primary" onclick="verifyPassword()">Unlock</button>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 1rem;">Kid-proof mode active</div>
+        </div>
+    </div>
+
+    <!-- SETUP GUIDE MODAL -->
+    <div id="setupGuideModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1999; align-items: center; justify-content: center;">
+        <div style="background: var(--card); padding: 2rem; border-radius: 0.5rem; max-width: 400px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary); text-align: center;">📱 Quick Start Guide</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">🔐 Password</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Default: <strong>1234</strong></p>
+                <p style="font-size: 0.875rem; color: #64748b;">Change anytime in Settings → Security</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">📂 Load Your Data</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Go to Settings → Data Management → Load Data</p>
+                <p style="font-size: 0.875rem; color: #64748b;">Select your JSON backup file and click "Load File"</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">✅ Everything Auto-Saves</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ Every 30 seconds (see indicator in top bar)</p>
+                <p style="font-size: 0.875rem; color: #64748b;">✓ When you close the app</p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-top: 0.5rem;">You don't need to do anything!</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">🔒 Lock App</h3>
+                <p style="font-size: 0.875rem; color: #64748b;">Click 🔒 button in top-right anytime</p>
+            </div>
+
+            <button class="btn btn-primary" onclick="closeSetupGuide()" style="width: 100%; margin-top: 1rem;">Got It! Let's Go 🚀</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboard" class="section active">
+            <h1 style="margin-bottom: 1.5rem;">Business Dashboard</h1>
+            
+            <div class="card" style="background: linear-gradient(135deg, #10b98120 0%, #2563eb20 100%); border-left: 4px solid var(--secondary);">
+                <h3 style="margin-bottom: 1rem; color: var(--primary);">✅ Status</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem;">
+                    <div>
+                        <span style="color: #64748b;">🔄 Auto-Save:</span><br>
+                        <span style="color: var(--secondary); font-weight: 600;">Every 30 secs</span>
+                    </div>
+                    <div>
+                        <span style="color: #64748b;">💾 Last Backup:</span><br>
+                        <span style="color: var(--secondary); font-weight: 600;" id="lastBackupTime">Loading...</span>
+                    </div>
+                    <div>
+                        <span style="color: #64748b;">🔐 Password:</span><br>
+                        <span style="color: var(--secondary); font-weight: 600;">Active</span>
+                    </div>
+                    <div>
+                        <span style="color: #64748b;">📁 Tracked File:</span><br>
+                        <span style="color: var(--secondary); font-weight: 600;" id="trackedFileName">No file loaded</span>
+                    </div>
+                </div>
+                <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+                    ℹ️ No action needed. App auto-saves every 30 seconds and syncs to your loaded file. Both phone and PC can access the same file.
+                </p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalItems">0</div>
+                    <div class="stat-label">Items in Stock</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCustomers">0</div>
+                    <div class="stat-label">Customers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalIncome">R0</div>
+                    <div class="stat-label">Total Income</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalExpense">R0</div>
+                    <div class="stat-label">Total Expenses</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Recent Transactions</h2>
+                <div id="recentTransactions">
+                    <div class="empty">No transactions yet</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- VERIFICATION MODAL -->
+        <!-- INVENTORY SECTION -->
+        <section id="inventory" class="section">
+            <h1 style="margin-bottom: 1rem;">Inventory Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Add New Item</h2>
+                <form id="itemForm" onsubmit="addItem(event)">
+                    <div class="form-group">
+                        <label for="itemName">Item Name *</label>
+                        <input type="text" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemQuantity">Quantity *</label>
+                        <input type="number" id="itemQuantity" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemCondition">Condition *</label>
+                        <select id="itemCondition" required>
+                            <option value="new">New</option>
+                            <option value="used">Used</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemCost">Cost Price (R) *</label>
+                        <input type="number" id="itemCost" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemPrice">Selling Price (R) *</label>
+                        <input type="number" id="itemPrice" min="0" step="0.01" required>
+                    </div>
+                    <div id="profitPreview" class="profit-preview">💰 Profit: enter cost and price</div>
+                    <div class="form-group">
+                        <label for="itemDescription">Description</label>
+                        <textarea id="itemDescription" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemSeller">Seller Name</label>
+                        <input type="text" id="itemSeller" placeholder="Your name or business name">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="itemActive">
+                            Active (Show on public shop)
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Picture (Optional)</label>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('itemImageCamera').click()">📷 Take photo</button>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('itemImage').click()">🖼️ Choose from gallery</button>
+                        </div>
+                        <input type="file" id="itemImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="onImagePicked('camera')">
+                        <input type="file" id="itemImage" accept="image/*" style="display: none;" onchange="onImagePicked('gallery')">
+                        <img id="imagePreview" alt="Preview" style="display: none; max-width: 120px; max-height: 120px; margin-top: 0.5rem; border-radius: 0.375rem; object-fit: cover;">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Current Inventory</h2>
+                <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+                    <button class="nav-btn" onclick="filterInventory('all')" id="filterAll">All Items</button>
+                    <button class="nav-btn" onclick="filterInventory('new')" id="filterNew">New</button>
+                    <button class="nav-btn" onclick="filterInventory('used')" id="filterUsed">Used</button>
+                </div>
+                <div id="inventoryList" class="items-grid"></div>
+            </div>
+        </section>
+
+        <!-- CUSTOMERS SECTION -->
+        <section id="customers" class="section">
+            <h1 style="margin-bottom: 1rem;">Customer Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Add New Customer</h2>
+                <form id="customerForm" onsubmit="addCustomer(event)">
+                    <div class="form-group">
+                        <label for="customerName">Name *</label>
+                        <input type="text" id="customerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerPhone">Phone *</label>
+                        <input type="tel" id="customerPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerAddress">Address</label>
+                        <textarea id="customerAddress" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerNotes">Notes / Preferences</label>
+                        <textarea id="customerNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Customer</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Customers</h2>
+                <div id="customersList"></div>
+            </div>
+        </section>
+
+        <!-- ORDERS SECTION -->
+        <section id="orders" class="section">
+            <h1 style="margin-bottom: 1rem;">Order Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">New Order</h2>
+                <form id="orderForm" onsubmit="addOrder(event)">
+                    <div class="form-group">
+                        <label for="orderCustomer">Customer *</label>
+                        <select id="orderCustomer" required>
+                            <option value="">Select customer...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderItem">Item *</label>
+                        <select id="orderItem" required>
+                            <option value="">Select item...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderQuantity">Quantity *</label>
+                        <input type="number" id="orderQuantity" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderStatus">Status</label>
+                        <select id="orderStatus">
+                            <option value="pending">Pending</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="collected">Collected</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderNotes">Notes</label>
+                        <textarea id="orderNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Order</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Orders</h2>
+                <div id="ordersList"></div>
+            </div>
+        </section>
+
+        <!-- SETTINGS SECTION -->
+        <section id="settings" class="section">
+            <h1 style="margin-bottom: 1rem;">Settings</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Business Information</h2>
+                <div class="form-group">
+                    <label for="companyName">Company Name</label>
+                    <input type="text" id="companyName" placeholder="Enter your business name">
+                </div>
+                <button class="btn btn-primary" onclick="saveCompanyName()">Save Company Name</button>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Theme</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                        Dark Mode
+                    </label>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">🔐 Security</h2>
+                <div style="margin-bottom: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Password Protection</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Default: <strong>1234</strong> | Auto-locks after 5 mins of inactivity</p>
+                    <button class="btn btn-primary" onclick="changePassword()">🔑 Change Password</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Data Management</h2>
+                <div style="margin-bottom: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Export Data</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Download your data as a backup file</p>
+                    <button class="btn btn-secondary" onclick="exportData()">📥 Export as JSON</button>
+                </div>
+
+                <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">📁 Load Data from Backup</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Load a previously saved JSON backup file</p>
+                    <input type="file" id="fileLoad" accept=".json" style="margin-bottom: 0.5rem;">
+                    <button class="btn btn-primary" onclick="verifyFileLoad()">📂 Load File</button>
+                    <div id="fileLoadStatus" style="font-size: 0.875rem; color: #64748b; margin-top: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <div class="card" style="border-top: 2px solid var(--danger);">
+                <h2 style="margin-bottom: 1rem; color: var(--danger);">Danger Zone</h2>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">⚠️ This action cannot be undone</p>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
+            </div>
+        </section>
+
+        <!-- FINANCE SECTION -->
+        <section id="finance" class="section">
+            <h1 style="margin-bottom: 1rem;">Financial Tracking</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Record Transaction</h2>
+                <form id="financeForm" onsubmit="addTransaction(event)">
+                    <div class="form-group">
+                        <label for="transType">Type *</label>
+                        <select id="transType" required onchange="updateTransactionLabel()">
+                            <option value="income">Income (Sale)</option>
+                            <option value="expense">Expense (Purchase)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="orderSelectGroup" style="display: none;">
+                        <label for="linkedOrder">Link to Order (Optional)</label>
+                        <select id="linkedOrder">
+                            <option value="">Select order to mark as paid...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transAmount">Amount (R) *</label>
+                        <input type="number" id="transAmount" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transDescription">Description *</label>
+                        <input type="text" id="transDescription" placeholder="e.g., Sold 5 units to John" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transDate">Date</label>
+                        <input type="date" id="transDate" value="">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Record Transaction</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Financial Summary</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value transaction-income" id="summaryIncome">R0</div>
+                        <div class="stat-label">Total Income</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value transaction-expense" id="summaryExpense">R0</div>
+                        <div class="stat-label">Total Expenses</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="summaryProfit">R0</div>
+                        <div class="stat-label">Net Profit</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">📊 Transaction Report & Export</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label for="pdfFromDate">From Date</label>
+                        <input type="date" id="pdfFromDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="pdfToDate">To Date</label>
+                        <input type="date" id="pdfToDate">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <button class="nav-btn" onclick="setDateRange('thisMonth')" style="flex: 1; min-width: 120px;">This Month</button>
+                    <button class="nav-btn" onclick="setDateRange('lastMonth')" style="flex: 1; min-width: 120px;">Last Month</button>
+                    <button class="btn btn-secondary" onclick="exportToPDF()" style="flex: 1; min-width: 120px;">📄 Export to PDF</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Transaction History</h2>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="transactionSearch">Search Transactions</label>
+                    <input type="text" id="transactionSearch" placeholder="Search by description or date..." onkeyup="searchTransactions()">
+                </div>
+                <div id="transactionsList"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // ============================================
+        // DATA STORAGE - File-Based (JSON)
+        // All data is stored in memory. Must export to JSON to save.
+        // ============================================
+
+        // In-memory data storage
+        let appData = {
+            items: [],
+            customers: [],
+            orders: [],
+            transactions: []
+        };
+
+        // File Handle API - remembers which file to save to
+        let fileHandle = null;
+        let fileName = 'myshop.json';
+
+        // Initialize date input to today
+        document.getElementById('transDate').valueAsDate = new Date();
+
+        // Get data from memory
+        function getData() {
+            return appData;
+        }
+
+        // Save data to memory (no localStorage)
+        function saveData(data) {
+            appData = data;
+            // Auto-save to IndexedDB in background
+            saveToIndexedDB(data);
+            // Also save to file if handle exists
+            if (fileHandle) {
+                saveDataToFile(data);
+            }
+        }
+
+        // Write data to file using File Handle API
+        async function saveDataToFile(data) {
+            if (!fileHandle) return;
+
+            try {
+                const writable = await fileHandle.createWritable();
+                const exportObj = {
+                    exportDate: new Date().toLocaleString(),
+                    summary: {
+                        totalItems: data.items.length,
+                        totalCustomers: data.customers.length,
+                        totalOrders: data.orders.length,
+                        totalTransactions: data.transactions.length
+                    },
+                    data: data
+                };
+                await writable.write(JSON.stringify(exportObj, null, 2));
+                await writable.close();
+            } catch (error) {
+                console.log('File write error:', error);
+            }
+        }
+
+        // ============================================
+        // INDEXEDDB AUTO-BACKUP
+        // ============================================
+        
+        const DB_NAME = 'MyLittleBoutiqueDB';
+        const STORE_NAME = 'backup';
+
+        function saveToIndexedDB(data) {
+            const request = indexedDB.open(DB_NAME, 1);
+
+            request.onerror = () => console.log('IndexedDB save failed');
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.put({
+                    key: 'appBackup',
+                    data: data,
+                    timestamp: new Date().toLocaleString()
+                });
+                updateLastBackupTime();
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                }
+            };
+        }
+
+        function loadFromIndexedDB() {
+            return new Promise((resolve) => {
+                const request = indexedDB.open(DB_NAME, 1);
+
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const getRequest = store.get('appBackup');
+
+                    getRequest.onsuccess = () => {
+                        resolve(getRequest.result || null);
+                    };
+                };
+
+                request.onerror = () => resolve(null);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                    }
+                };
+            });
+        }
+
+        // Show auto-save indicator
+        function showAutoSaveIndicator() {
+            const indicator = document.getElementById('autoSaveIndicator');
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+        }
+
+        // Auto-save every 30 seconds
+        let autoSaveInterval = null;
+
+        function startAutoSave() {
+            autoSaveInterval = setInterval(() => {
+                saveData(appData); // This triggers IndexedDB + file save
+                showAutoSaveIndicator();
+            }, 30000); // 30 seconds
+        }
+
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+        }
+
+        // Save on page close
+        window.addEventListener('beforeunload', () => {
+            saveToIndexedDB(appData);
+            // Auto-download on close
+            exportDataOnClose();
+        });
+        
+        // Export data file on page close (silent, no alert)
+        function exportDataOnClose() {
+            try {
+                const data = appData;
+
+                // If file is being tracked, save to that file
+                if (fileName && fileName !== 'myshop.json') {
+                    saveDataToFile(data);
+                    return;
+                }
+
+                // Otherwise, download backup
+                const companyName = document.getElementById('companyName').value || 'Business';
+                const exportObj = {
+                    exportDate: new Date().toLocaleString(),
+                    summary: {
+                        totalItems: data.items.length,
+                        totalCustomers: data.customers.length,
+                        totalOrders: data.orders.length,
+                        totalTransactions: data.transactions.length
+                    },
+                    data: data
+                };
+
+                const dataStr = JSON.stringify(exportObj, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                const dateStr = new Date().toISOString().split('T')[0];
+                const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                link.download = `${cleanCompanyName}-${dateStr}.json`;
+                
+                link.click();
+            } catch (error) {
+                console.log('Auto-export on close failed:', error);
+            }
+        }
+
+        // ============================================
+        // PASSWORD SECURITY & TIMEOUT
+        // ============================================
+
+        let appPassword = localStorage.getItem('appPassword') || '1234'; // Default password
+        let isLocked = true;
+        let inactivityTimeout = null;
+        const INACTIVITY_TIME = 5 * 60 * 1000; // 5 minutes
+
+        // Check password on load
+        function initializePasswordProtection() {
+            showPasswordModal();
+        }
+
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.querySelector('.container').style.display = 'none';
+            setTimeout(() => {
+                document.getElementById('passwordInput').focus();
+            }, 100);
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+        }
+
+        function verifyPassword() {
+            const password = document.getElementById('passwordInput').value;
+            if (password === appPassword) {
+                document.getElementById('passwordInput').value = '';
+                hidePasswordModal();
+                isLocked = false;
+                startInactivityTimer();
+                refreshDisplay();
+                updateLastBackupTime(); // Show backup time on dashboard
+            } else {
+                alert('❌ Wrong password');
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        }
+
+        function lockApp() {
+            stopInactivityTimer();
+            isLocked = true;
+            showPasswordModal();
+        }
+
+        function startInactivityTimer() {
+            // Clear existing timer
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+            }
+
+            // Set new timer
+            inactivityTimeout = setTimeout(() => {
+                lockApp();
+            }, INACTIVITY_TIME);
+        }
+
+        function stopInactivityTimer() {
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+            }
+        }
+
+        // Reset timer on any user activity
+        function resetInactivityTimer() {
+            if (!isLocked) {
+                startInactivityTimer();
+            }
+        }
+
+        // Track user activity
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('touchstart', resetInactivityTimer);
+
+        // Allow password change in settings
+        function changePassword() {
+            const oldPassword = prompt('Current password:');
+            if (oldPassword !== appPassword) {
+                alert('❌ Incorrect current password');
+                return;
+            }
+
+            const newPassword = prompt('New password (remember this!):');
+            if (!newPassword || newPassword.length < 4) {
+                alert('❌ Password must be at least 4 characters');
+                return;
+            }
+
+            const confirmPassword = prompt('Confirm new password:');
+            if (newPassword !== confirmPassword) {
+                alert('❌ Passwords do not match');
+                return;
+            }
+
+            appPassword = newPassword;
+            localStorage.setItem('appPassword', newPassword);
+            alert('✅ Password changed successfully!');
+        }
+
+        // ============================================
+        // SETUP GUIDE
+        // ============================================
+
+        let lastBackupTimestamp = null;
+
+        function showSetupGuide() {
+            const hasSeenSetup = localStorage.getItem('setupGuideSeen');
+            if (!hasSeenSetup) {
+                document.getElementById('setupGuideModal').style.display = 'flex';
+            }
+        }
+
+        function closeSetupGuide() {
+            document.getElementById('setupGuideModal').style.display = 'none';
+            localStorage.setItem('setupGuideSeen', 'true');
+        }
+
+        function updateLastBackupTime() {
+            lastBackupTimestamp = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const elem = document.getElementById('lastBackupTime');
+            if (elem) {
+                elem.textContent = lastBackupTimestamp;
+            }
+        }
+
+        function updateTrackedFileName() {
+            const elem = document.getElementById('trackedFileName');
+            if (elem) {
+                elem.textContent = fileName || 'No file loaded';
+            }
+        }
+        
+        // File verification and loading
+        let pendingFileData = null;
+
+        function verifyFileLoad() {
+            const fileInput = document.getElementById('fileLoad');
+            if (fileInput.files.length === 0) {
+                alert('Please select a JSON file');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    
+                    // Validate structure
+                    if (!importedData.data || !importedData.data.items) {
+                        alert('Invalid backup file format');
+                        return;
+                    }
+
+                    // Store for confirmation
+                    pendingFileData = importedData;
+                    
+                    // Show inline verification
+                    showInlineVerification(importedData);
+                } catch (error) {
+                    alert('Error reading file: ' + error.message);
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function showInlineVerification(fileData) {
+            const statusDiv = document.getElementById('fileLoadStatus');
+            
+            const summary = `
+                <div style="background: var(--bg); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;">
+                    <strong>✅ File Verified - Contents:</strong><br>
+                    📦 Items: ${fileData.data.items.length}<br>
+                    👥 Customers: ${fileData.data.customers.length}<br>
+                    📋 Orders: ${fileData.data.orders.length}<br>
+                    💰 Transactions: ${fileData.data.transactions.length}<br>
+                    📅 ${fileData.exportDate || 'Date unknown'}<br>
+                </div>
+            `;
+            
+            statusDiv.innerHTML = summary + 
+                `<div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="confirmFileLoad()" style="flex: 1;">Load Data</button>
+                    <button class="btn btn-danger" onclick="cancelFileLoad()" style="flex: 1;">Cancel</button>
+                </div>`;
+        }
+
+        function cancelFileLoad() {
+            document.getElementById('fileLoad').value = '';
+            document.getElementById('fileLoadStatus').innerHTML = '';
+            pendingFileData = null;
+        }
+
+        function confirmFileLoad() {
+            if (!pendingFileData) return;
+
+            try {
+                // Add backward compatibility for paid/paidDate properties
+                const orders = pendingFileData.data.orders.map(order => ({
+                    ...order,
+                    paid: order.paid !== undefined ? order.paid : false,
+                    paidDate: order.paidDate || null
+                }));
+
+                // Load data into memory
+                appData = {
+                    items: pendingFileData.data.items,
+                    customers: pendingFileData.data.customers,
+                    orders: orders,
+                    transactions: pendingFileData.data.transactions
+                };
+
+                // Store filename for tracking
+                const fileInput = document.getElementById('fileLoad');
+                if (fileInput.files && fileInput.files[0]) {
+                    fileName = fileInput.files[0].name;
+                    updateTrackedFileName();
+                }
+
+                document.getElementById('fileLoad').value = '';
+                document.getElementById('fileLoadStatus').innerHTML = '<div style="color: var(--secondary); font-weight: 600;">✅ Data loaded! Syncing to: <strong>' + fileName + '</strong></div>';
+                
+                // Start auto-save (will save to file + IndexedDB)
+                startAutoSave();
+                
+                // Save immediately to file
+                saveDataToFile(appData);
+                
+                setTimeout(() => {
+                    refreshDisplay();
+                }, 500);
+                
+                pendingFileData = null;
+            } catch (error) {
+                alert('Error loading data: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // NAVIGATION
+        // ============================================
+
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Refresh the section data
+            refreshDisplay();
+        }
+
+        // ============================================
+        // INVENTORY FUNCTIONS
+        // ============================================
+
+        // ---- Picture helpers ----
+        function getSelectedImageFile() {
+            const cam = document.getElementById('itemImageCamera').files[0];
+            const gal = document.getElementById('itemImage').files[0];
+            return cam || gal || null;
+        }
+
+        // Show preview; only one of the two inputs holds a file at a time
+        function onImagePicked(source) {
+            const other = source === 'camera' ? 'itemImage' : 'itemImageCamera';
+            document.getElementById(other).value = '';
+            const file = getSelectedImageFile();
+            const preview = document.getElementById('imagePreview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        // Shrink photo (max 800px, JPEG) so phone photos don't bloat the database
+        function resizeImage(file, maxSize = 800) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.onerror = () => reject(new Error('Could not read image'));
+                img.src = url;
+            });
+        }
+
+        // ---- Profit preview ----
+        function updateProfitPreview() {
+            const box = document.getElementById('profitPreview');
+            const cost = parseFloat(document.getElementById('itemCost').value);
+            const price = parseFloat(document.getElementById('itemPrice').value);
+            const qty = parseInt(document.getElementById('itemQuantity').value) || 1;
+
+            box.className = 'profit-preview';
+            if (isNaN(cost) || isNaN(price)) {
+                box.textContent = '💰 Profit: enter cost and price';
+                return;
+            }
+            const profit = price - cost;
+            const margin = price > 0 ? (profit / price) * 100 : 0;
+            box.classList.add(profit >= 0 ? 'positive' : 'negative');
+            box.textContent = `💰 Profit: R${profit.toFixed(2)} each (${margin.toFixed(0)}% margin)` +
+                (qty > 1 ? ` | R${(profit * qty).toFixed(2)} for ${qty} units` : '');
+        }
+
+        ['itemCost', 'itemPrice', 'itemQuantity'].forEach(id =>
+            document.getElementById(id).addEventListener('input', updateProfitPreview));
+        document.getElementById('itemForm').addEventListener('reset', () => {
+            setTimeout(() => {
+                updateProfitPreview();
+                document.getElementById('imagePreview').style.display = 'none';
+            }, 0);
+        });
+
+        async function addItem(e) {
+            e.preventDefault();
+            const data = getData();
+            const file = getSelectedImageFile();
+            let image = null;
+            if (file) {
+                try { image = await resizeImage(file); }
+                catch (err) { alert('Could not read the picture. Item saved without it.'); }
+            }
+
+            data.items.push({
+                id: Date.now(),
+                name: document.getElementById('itemName').value,
+                quantity: parseInt(document.getElementById('itemQuantity').value),
+                condition: document.getElementById('itemCondition').value,
+                costPrice: parseFloat(document.getElementById('itemCost').value),
+                sellingPrice: parseFloat(document.getElementById('itemPrice').value),
+                description: document.getElementById('itemDescription').value,
+                seller: document.getElementById('itemSeller').value || 'Shop',
+                active: document.getElementById('itemActive').checked,
+                image: image,
+                dateAdded: new Date().toLocaleDateString()
+            });
+
+            saveData(data);
+            document.getElementById('itemForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteItem(itemId) {
+            if (confirm('Delete this item?')) {
+                const data = getData();
+                data.items = data.items.filter(i => i.id !== itemId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        // Track current inventory filter
+        let inventoryFilter = 'all';
+
+        function filterInventory(type) {
+            inventoryFilter = type;
+            // Update button styling
+            document.getElementById('filterAll').classList.toggle('active', type === 'all');
+            document.getElementById('filterNew').classList.toggle('active', type === 'new');
+            document.getElementById('filterUsed').classList.toggle('active', type === 'used');
+            displayInventory();
+        }
+
+        function displayInventory() {
+            const data = getData();
+            const list = document.getElementById('inventoryList');
+
+            // Filter items based on condition
+            let filteredItems = data.items;
+            if (inventoryFilter === 'new') {
+                filteredItems = data.items.filter(i => i.condition === 'new');
+            } else if (inventoryFilter === 'used') {
+                filteredItems = data.items.filter(i => i.condition === 'used');
+            }
+
+            if (filteredItems.length === 0) {
+                list.innerHTML = '<div class="empty">No items in this category. Add one to get started!</div>';
+                return;
+            }
+
+            list.innerHTML = filteredItems.map(item => {
+                const isLowStock = item.condition === 'new' && item.quantity < 5;
+                const isActive = item.active || false;
+                return `
+                <div class="item-card">
+                    ${item.image ? `<img src="${item.image}" class="item-image">` : ''}
+                    <div class="item-info">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                            <div>
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-meta">👤 ${item.seller || 'Shop'}</div>
+                            </div>
+                            <div style="text-align: right; font-size: 0.75rem;">
+                                ${isActive ? `<span style="background: #dcfce7; color: #166534; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🛍️ ACTIVE</span>` : `<span style="background: #f3f4f6; color: #6b7280; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">INACTIVE</span>`}
+                            </div>
+                        </div>
+                        <div class="item-meta">📦 ${item.quantity} units | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
+                        ${isLowStock ? `<div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.5rem; border-radius: 0.25rem; margin-top: 0.5rem;"><span style="color: #b45309; font-weight: 600;">⚠️ Low Stock Alert</span></div>` : ''}
+                        <div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
+                        <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>
+                        <div class="item-meta" style="margin-top: 0.5rem; color: #94a3b8;">${item.description || 'No description'}</div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="editItem(${item.id})">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteItem(${item.id})">Delete</button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function editItem(itemId) {
+            const data = getData();
+            const item = data.items.find(i => i.id === itemId);
+            
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemQuantity').value = item.quantity;
+            document.getElementById('itemCondition').value = item.condition;
+            document.getElementById('itemCost').value = item.costPrice;
+            document.getElementById('itemPrice').value = item.sellingPrice;
+            document.getElementById('itemDescription').value = item.description;
+            document.getElementById('itemSeller').value = item.seller || '';
+            document.getElementById('itemActive').checked = item.active || false;
+            updateProfitPreview();
+            
+            // Change form submission to update mode
+            const form = document.getElementById('itemForm');
+            form.onsubmit = (e) => updateItem(e, itemId);
+            
+            // Change button text
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function updateItem(e, itemId) {
+            e.preventDefault();
+            const data = getData();
+            const item = data.items.find(i => i.id === itemId);
+
+            item.name = document.getElementById('itemName').value;
+            item.quantity = parseInt(document.getElementById('itemQuantity').value);
+            item.condition = document.getElementById('itemCondition').value;
+            item.costPrice = parseFloat(document.getElementById('itemCost').value);
+            item.sellingPrice = parseFloat(document.getElementById('itemPrice').value);
+            item.description = document.getElementById('itemDescription').value;
+            item.seller = document.getElementById('itemSeller').value || 'Shop';
+            item.active = document.getElementById('itemActive').checked;
+
+            // Only replace the picture if a new one was chosen
+            const file = getSelectedImageFile();
+            if (file) {
+                try { item.image = await resizeImage(file); }
+                catch (err) { alert('Could not read the new picture. Kept the old one.'); }
+            }
+
+            saveData(data);
+            resetItemForm();
+            refreshDisplay();
+        }
+
+        function resetItemForm() {
+            document.getElementById('itemForm').reset();
+            document.getElementById('itemForm').onsubmit = (e) => addItem(e);
+            document.querySelector('#itemForm button[type="submit"]').textContent = 'Add Item';
+        }
+
+        // ============================================
+        // CUSTOMER FUNCTIONS
+        // ============================================
+
+        function addCustomer(e) {
+            e.preventDefault();
+            const data = getData();
+
+            const newCustomer = {
+                id: Date.now(),
+                name: document.getElementById('customerName').value,
+                phone: document.getElementById('customerPhone').value,
+                address: document.getElementById('customerAddress').value,
+                notes: document.getElementById('customerNotes').value,
+                dateAdded: new Date().toLocaleDateString()
+            };
+
+            data.customers.push(newCustomer);
+            saveData(data);
+            document.getElementById('customerForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteCustomer(customerId) {
+            if (confirm('Delete this customer?')) {
+                const data = getData();
+                data.customers = data.customers.filter(c => c.id !== customerId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        function displayCustomers() {
+            const data = getData();
+            const list = document.getElementById('customersList');
+
+            if (data.customers.length === 0) {
+                list.innerHTML = '<div class="empty">No customers yet.</div>';
+                return;
+            }
+
+            list.innerHTML = data.customers.map(customer => `
+                <div class="card">
+                    <div class="item-name">${customer.name}</div>
+                    <div class="item-meta">📞 ${customer.phone}</div>
+                    ${customer.address ? `<div class="item-meta">📍 ${customer.address}</div>` : ''}
+                    ${customer.notes ? `<div class="item-meta" style="margin-top: 0.5rem;">📝 ${customer.notes}</div>` : ''}
+                    <div class="btn-group" style="margin-top: 1rem;">
+                        <button class="btn btn-primary" onclick="editCustomer(${customer.id})">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editCustomer(customerId) {
+            const data = getData();
+            const customer = data.customers.find(c => c.id === customerId);
+            
+            document.getElementById('customerName').value = customer.name;
+            document.getElementById('customerPhone').value = customer.phone;
+            document.getElementById('customerAddress').value = customer.address;
+            document.getElementById('customerNotes').value = customer.notes;
+            
+            // Change form submission to update mode
+            const form = document.getElementById('customerForm');
+            form.onsubmit = (e) => updateCustomer(e, customerId);
+            
+            // Change button text
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateCustomer(e, customerId) {
+            e.preventDefault();
+            const data = getData();
+            const customer = data.customers.find(c => c.id === customerId);
+            
+            customer.name = document.getElementById('customerName').value;
+            customer.phone = document.getElementById('customerPhone').value;
+            customer.address = document.getElementById('customerAddress').value;
+            customer.notes = document.getElementById('customerNotes').value;
+            
+            saveData(data);
+            resetCustomerForm();
+            refreshDisplay();
+        }
+
+        function resetCustomerForm() {
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerForm').onsubmit = (e) => addCustomer(e);
+            document.querySelector('#customerForm button[type="submit"]').textContent = 'Add Customer';
+        }
+
+        // ============================================
+        // ORDER FUNCTIONS
+        // ============================================
+
+        function updateOrderSelects() {
+            const data = getData();
+            
+            // Update customer select
+            const customerSelect = document.getElementById('orderCustomer');
+            customerSelect.innerHTML = '<option value="">Select customer...</option>' +
+                data.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+            // Update item select
+            const itemSelect = document.getElementById('orderItem');
+            itemSelect.innerHTML = '<option value="">Select item...</option>' +
+                data.items.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+        }
+
+        function addOrder(e) {
+            e.preventDefault();
+            const data = getData();
+            
+            const customerId = parseInt(document.getElementById('orderCustomer').value);
+            const itemId = parseInt(document.getElementById('orderItem').value);
+            const quantity = parseInt(document.getElementById('orderQuantity').value);
+
+            // Find the items to get price
+            const item = data.items.find(i => i.id === itemId);
+            const customer = data.customers.find(c => c.id === customerId);
+
+            const newOrder = {
+                id: Date.now(),
+                customerId: customerId,
+                customerName: customer.name,
+                itemId: itemId,
+                itemName: item.name,
+                quantity: quantity,
+                totalPrice: item.sellingPrice * quantity,
+                status: document.getElementById('orderStatus').value,
+                notes: document.getElementById('orderNotes').value,
+                paid: false,
+                paidDate: null,
+                dateCreated: new Date().toLocaleDateString()
+            };
+
+            data.orders.push(newOrder);
+            
+            // Deduct from inventory
+            const itemIndex = data.items.findIndex(i => i.id === itemId);
+            data.items[itemIndex].quantity -= quantity;
+
+            saveData(data);
+            document.getElementById('orderForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteOrder(orderId) {
+            if (confirm('Delete this order?')) {
+                const data = getData();
+                data.orders = data.orders.filter(o => o.id !== orderId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        function displayOrders() {
+            const data = getData();
+            const list = document.getElementById('ordersList');
+
+            if (data.orders.length === 0) {
+                list.innerHTML = '<div class="empty">No orders yet.</div>';
+                return;
+            }
+
+            // Sort by date, newest first
+            const sorted = [...data.orders].sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+
+            list.innerHTML = sorted.map(order => {
+                const statusColors = {
+                    'pending': '#fbbf24',
+                    'delivered': '#34d399',
+                    'collected': '#34d399'
+                };
+                const displayStatus = order.paid ? `✅ PAID (${order.paidDate || 'Date'})` : order.status.toUpperCase();
+                const statusColor = order.paid ? '#10b981' : statusColors[order.status];
+                
+                return `
+                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem;">
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
+                        <div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem;">
+                                <div style="font-weight: 600; font-size: 0.95rem;">${order.customerName}</div>
+                                ${order.source === 'storefront' ? `<span style="background: #2563eb20; color: #2563eb; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">🛍️ STOREFRONT</span>` : ''}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${order.itemName} x${order.quantity}</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">💰 R${order.totalPrice.toFixed(2)} | 📅 ${order.dateCreated}</div>
+                            <div style="font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem; background: ${statusColor}20; border-left: 3px solid ${statusColor}; border-radius: 0.25rem;">
+                                <span style="color: ${statusColor}; font-weight: 600;">📍 ${displayStatus}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <select onchange="updateOrderStatus(${order.id}, this.value)" style="background: ${statusColors[order.status]}; color: white; font-weight: 500; font-size: 0.8rem; padding: 0.4rem; border-radius: 0.375rem; border: none; cursor: pointer;">
+                                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="collected" ${order.status === 'collected' ? 'selected' : ''}>Collected</option>
+                            </select>
+                            <button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="editOrder(${order.id})">Edit</button>
+                            <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="deleteOrder(${order.id})">Delete</button>
+                        </div>
+                    </div>
+                    ${order.notes ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">📝 ${order.notes}</div>` : ''}
+                </div>
+            `; }).join('');
+        }
+
+        function editOrder(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            
+            document.getElementById('orderCustomer').value = order.customerId;
+            document.getElementById('orderItem').value = order.itemId;
+            document.getElementById('orderQuantity').value = order.quantity;
+            document.getElementById('orderStatus').value = order.status;
+            document.getElementById('orderNotes').value = order.notes;
+            
+            // Change form submission to update mode
+            const form = document.getElementById('orderForm');
+            form.onsubmit = (e) => updateOrder(e, orderId);
+            
+            // Change button text
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateOrder(e, orderId) {
+            e.preventDefault();
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            
+            const newQuantity = parseInt(document.getElementById('orderQuantity').value);
+            const oldQuantity = order.quantity;
+            const quantityDifference = newQuantity - oldQuantity;
+            
+            // Update order fields
+            order.quantity = newQuantity;
+            order.status = document.getElementById('orderStatus').value;
+            order.notes = document.getElementById('orderNotes').value;
+            
+            // Adjust inventory based on quantity change
+            if (quantityDifference !== 0) {
+                const item = data.items.find(i => i.id === order.itemId);
+                if (item) {
+                    item.quantity -= quantityDifference;
+                    // Recalculate total price
+                    order.totalPrice = item.sellingPrice * newQuantity;
+                }
+            }
+            
+            saveData(data);
+            resetOrderForm();
+            refreshDisplay();
+        }
+
+        function resetOrderForm() {
+            document.getElementById('orderForm').reset();
+            document.getElementById('orderForm').onsubmit = (e) => addOrder(e);
+            document.querySelector('#orderForm button[type="submit"]').textContent = 'Create Order';
+        }
+
+        // ============================================
+        // FINANCE FUNCTIONS
+        // ============================================
+
+        function updateTransactionLabel() {
+            const type = document.getElementById('transType').value;
+            const label = type === 'income' ? 'Income (R)' : 'Expense (R)';
+            document.querySelector('label[for="transAmount"]').textContent = label + ' *';
+            
+            // Show order selection only for income
+            const orderSelectGroup = document.getElementById('orderSelectGroup');
+            if (type === 'income') {
+                orderSelectGroup.style.display = 'block';
+                updatePendingOrdersList();
+            } else {
+                orderSelectGroup.style.display = 'none';
+            }
+        }
+
+        function updatePendingOrdersList() {
+            const data = getData();
+            // Get unpaid orders (those that aren't marked as paid in the data structure)
+            const unpaidOrders = data.orders.filter(o => !o.paid);
+            
+            const orderSelect = document.getElementById('linkedOrder');
+            orderSelect.innerHTML = '<option value="">Select order to mark as paid...</option>' +
+                unpaidOrders.map(o => `<option value="${o.id}">${o.customerName} - ${o.itemName} (R${o.totalPrice.toFixed(2)})</option>`).join('');
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            const data = getData();
+            const linkedOrderId = parseInt(document.getElementById('linkedOrder').value);
+
+            const newTransaction = {
+                id: Date.now(),
+                type: document.getElementById('transType').value,
+                amount: parseFloat(document.getElementById('transAmount').value),
+                description: document.getElementById('transDescription').value,
+                date: document.getElementById('transDate').value,
+                linkedOrderId: linkedOrderId || null
+            };
+
+            // If linking to an order, mark it as paid
+            if (linkedOrderId) {
+                const order = data.orders.find(o => o.id === linkedOrderId);
+                if (order) {
+                    order.paid = true;
+                    order.paidDate = document.getElementById('transDate').value;
+                    
+                    // If the item sold was "used", remove it completely from inventory
+                    // If it was "new", it stays (already decremented at order creation)
+                    const item = data.items.find(i => i.id === order.itemId);
+                    if (item && item.condition === 'used') {
+                        data.items = data.items.filter(i => i.id !== order.itemId);
+                    }
+                }
+            }
+
+            data.transactions.push(newTransaction);
+            saveData(data);
+            document.getElementById('financeForm').reset();
+            document.getElementById('transDate').valueAsDate = new Date();
+            refreshDisplay();
+        }
+
+        function deleteTransaction(transId) {
+            if (confirm('Delete this transaction?')) {
+                const data = getData();
+                data.transactions = data.transactions.filter(t => t.id !== transId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        function displayTransactions() {
+            const data = getData();
+            const list = document.getElementById('transactionsList');
+
+            if (data.transactions.length === 0) {
+                list.innerHTML = '<div class="empty">No transactions yet.</div>';
+                return;
+            }
+
+            // Sort by date, newest first
+            const sorted = [...data.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Show only last 10
+            const recentTen = sorted.slice(0, 10);
+
+            list.innerHTML = '<div style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">📊 Showing last 10 transactions. Use search to find older ones.</div>' +
+                recentTen.map(trans => `
+                <div class="transaction">
+                    <div>
+                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}</div>
+                        <div class="item-meta">${trans.description}</div>
+                        <div class="item-meta">${trans.date}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="transaction-amount ${trans.type === 'income' ? 'transaction-income' : 'transaction-expense'}">
+                            ${trans.type === 'income' ? '+' : '-'}R${trans.amount.toFixed(2)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function searchTransactions() {
+            const searchQuery = document.getElementById('transactionSearch').value.toLowerCase();
+            const data = getData();
+            const list = document.getElementById('transactionsList');
+
+            if (!searchQuery) {
+                // If search is empty, show normal last 10
+                displayTransactions();
+                return;
+            }
+
+            // Search all transactions
+            const filtered = data.transactions.filter(trans => 
+                trans.description.toLowerCase().includes(searchQuery) ||
+                trans.date.includes(searchQuery) ||
+                trans.type.includes(searchQuery)
+            );
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="empty">No transactions found matching "' + searchQuery + '"</div>';
+                return;
+            }
+
+            // Sort by date, newest first
+            const sorted = filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            list.innerHTML = '<div style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">🔍 Found ' + sorted.length + ' matching transaction(s)</div>' +
+                sorted.map(trans => `
+                <div class="transaction">
+                    <div>
+                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}</div>
+                        <div class="item-meta">${trans.description}</div>
+                        <div class="item-meta">${trans.date}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="transaction-amount ${trans.type === 'income' ? 'transaction-income' : 'transaction-expense'}">
+                            ${trans.type === 'income' ? '+' : '-'}R${trans.amount.toFixed(2)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================
+        // DASHBOARD & STATS
+        // ============================================
+
+        function updateStats() {
+            const data = getData();
+
+            // Dashboard stats
+            document.getElementById('totalItems').textContent = data.items.length;
+            document.getElementById('totalCustomers').textContent = data.customers.length;
+
+            const income = data.transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+            const expense = data.transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            document.getElementById('totalIncome').textContent = 'R' + income.toFixed(2);
+            document.getElementById('totalExpense').textContent = 'R' + expense.toFixed(2);
+
+            // Finance summary
+            document.getElementById('summaryIncome').textContent = 'R' + income.toFixed(2);
+            document.getElementById('summaryExpense').textContent = 'R' + expense.toFixed(2);
+            document.getElementById('summaryProfit').textContent = 'R' + (income - expense).toFixed(2);
+
+            // Recent transactions (for dashboard)
+            const recent = [...data.transactions]
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 5);
+
+            const recentList = document.getElementById('recentTransactions');
+            if (recent.length === 0) {
+                recentList.innerHTML = '<div class="empty">No transactions yet</div>';
+            } else {
+                recentList.innerHTML = recent.map(trans => `
+                    <div class="transaction">
+                        <div>
+                            <div class="transaction-type">${trans.description}</div>
+                            <div class="item-meta">${trans.date}</div>
+                        </div>
+                        <div class="transaction-amount ${trans.type === 'income' ? 'transaction-income' : 'transaction-expense'}">
+                            ${trans.type === 'income' ? '+' : '-'}R${trans.amount.toFixed(2)}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // ============================================
+        // EXPORT FUNCTION
+        // ============================================
+
+        function exportData() {
+            const data = getData();
+            const companyName = document.getElementById('companyName').value || 'Business';
+            const exportObj = {
+                exportDate: new Date().toLocaleString(),
+                summary: {
+                    totalItems: data.items.length,
+                    totalCustomers: data.customers.length,
+                    totalOrders: data.orders.length,
+                    totalTransactions: data.transactions.length
+                },
+                data: data
+            };
+
+            const dataStr = JSON.stringify(exportObj, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Create filename: CompanyName-YYYY-MM-DD.json
+            const dateStr = new Date().toISOString().split('T')[0];
+            const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            link.download = `${cleanCompanyName}-${dateStr}.json`;
+            
+            link.click();
+            alert('✅ Data exported! Find the file in your downloads folder.');
+        }
+
+        // ============================================
+        // PDF EXPORT FUNCTIONS
+        // ============================================
+
+        function setDateRange(rangeType) {
+            const today = new Date();
+            const fromDateInput = document.getElementById('pdfFromDate');
+            const toDateInput = document.getElementById('pdfToDate');
+
+            if (rangeType === 'thisMonth') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                fromDateInput.valueAsDate = firstDay;
+                toDateInput.valueAsDate = today;
+            } else if (rangeType === 'lastMonth') {
+                const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                fromDateInput.valueAsDate = lastMonthStart;
+                toDateInput.valueAsDate = lastMonthEnd;
+            }
+        }
+
+        function exportToPDF() {
+            const data = getData();
+            const companyName = document.getElementById('companyName').value || 'Business';
+            const fromDate = document.getElementById('pdfFromDate').value;
+            const toDate = document.getElementById('pdfToDate').value;
+
+            if (!fromDate || !toDate) {
+                alert('Please select both from and to dates');
+                return;
+            }
+
+            // Filter transactions by date range
+            const filtered = data.transactions.filter(trans => {
+                const transDate = new Date(trans.date);
+                const from = new Date(fromDate);
+                const to = new Date(toDate);
+                return transDate >= from && transDate <= to;
+            });
+
+            if (filtered.length === 0) {
+                alert('No transactions found in this date range');
+                return;
+            }
+
+            // Sort by date
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Calculate totals
+            const income = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const profit = income - expense;
+
+            // Create PDF using jsPDF
+            const { jsPDF } = window;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let yPosition = 20;
+
+            // Header
+            doc.setFontSize(16);
+            doc.text(`${companyName} - Financial Report`, 20, yPosition);
+            yPosition += 10;
+
+            // Date range
+            doc.setFontSize(11);
+            doc.text(`From: ${fromDate} To: ${toDate}`, 20, yPosition);
+            yPosition += 10;
+
+            // Summary
+            doc.setFontSize(10);
+            doc.text(`Total Income: R${income.toFixed(2)}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Total Expenses: R${expense.toFixed(2)}`, 20, yPosition);
+            yPosition += 7;
+            doc.setFont(undefined, 'bold');
+            doc.text(`Net Profit: R${profit.toFixed(2)}`, 20, yPosition);
+            doc.setFont(undefined, 'normal');
+            yPosition += 12;
+
+            // Table header
+            doc.setFontSize(9);
+            const tableTop = yPosition;
+            doc.text('Date', 20, tableTop);
+            doc.text('Description', 50, tableTop);
+            doc.text('Type', 130, tableTop);
+            doc.text('Amount', 160, tableTop);
+            yPosition += 7;
+
+            // Table rows
+            filtered.forEach((trans) => {
+                if (yPosition > pageHeight - 20) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+
+                doc.text(trans.date, 20, yPosition);
+                doc.text(trans.description.substring(0, 35), 50, yPosition);
+                doc.text(trans.type.toUpperCase(), 130, yPosition);
+                doc.text(`R${trans.amount.toFixed(2)}`, 160, yPosition);
+                yPosition += 6;
+            });
+
+            // Footer
+            yPosition += 5;
+            doc.setFontSize(8);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, pageHeight - 10);
+
+            // Download
+            const dateStr = new Date().toISOString().split('T')[0];
+            const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            doc.save(`${cleanCompanyName}-report-${fromDate}-to-${toDate}.pdf`);
+        }
+
+        // ============================================
+        // REFRESH ALL DISPLAYS
+        // ============================================
+
+        function refreshDisplay() {
+            displayInventory();
+            displayCustomers();
+            displayOrders();
+            displayTransactions();
+            updateStats();
+            updateOrderSelects();
+            updatePendingOrdersList(); // Refresh the finance form's order dropdown
+        }
+
+        // ============================================
+        // SETTINGS FUNCTIONS
+        // ============================================
+
+        function saveCompanyName() {
+            const companyName = document.getElementById('companyName').value;
+            // Company name is saved with data export. Alert user.
+            alert('Company name updated. Export your data to save it in the backup file.');
+        }
+
+        function loadCompanyName() {
+            // Company name comes from loaded JSON file, not localStorage
+            // This is called on page load but data won't be loaded yet
+        }
+
+        function toggleDarkMode() {
+            const isDarkMode = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            document.getElementById('darkModeToggle').checked = isDarkMode;
+        }
+
+        function loadDarkMode() {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggle').checked = true;
+            }
+        }
+
+        // importData removed - use verifyFileLoad instead
+
+        function clearAllData() {
+            if (confirm('⚠️ This will DELETE all your current session data. Type YES to confirm:')) {
+                const confirmation = prompt('Type YES to permanently clear memory:');
+                if (confirmation === 'YES') {
+                    appData = {
+                        items: [],
+                        customers: [],
+                        orders: [],
+                        transactions: []
+                    };
+                    alert('All data cleared from memory');
+                    refreshDisplay();
+                }
+            }
+        }
+
+        // Initialize on page load
+        loadDarkMode();
+        updateTransactionLabel();
+        initializePasswordProtection(); // Require password to access app
+        showSetupGuide(); // Show setup guide on first time
+        
+        // Check for IndexedDB backup on load
+        loadFromIndexedDB().then((backup) => {
+            if (backup && backup.data) {
+                lastBackupTimestamp = backup.timestamp;
+                updateLastBackupTime();
+                const choice = confirm(
+                    `📂 Backup found from: ${backup.timestamp}\n\n` +
+                    `Items: ${backup.data.items.length} | ` +
+                    `Customers: ${backup.data.customers.length}\n\n` +
+                    `Restore this backup?`
+                );
+                
+                if (choice) {
+                    try {
+                        const orders = backup.data.orders.map(order => ({
+                            ...order,
+                            paid: order.paid !== undefined ? order.paid : false,
+                            paidDate: order.paidDate || null
+                        }));
+
+                        appData = {
+                            items: backup.data.items,
+                            customers: backup.data.customers,
+                            orders: orders,
+                            transactions: backup.data.transactions
+                        };
+
+                        startAutoSave();
+                        refreshDisplay();
+                        console.log('✅ Backup restored from IndexedDB');
+                    } catch (error) {
+                        console.log('Error restoring backup:', error);
+                    }
+                }
+            }
+        });
+        // ============================================
+        // PWA: register service worker (needed for install + offline)
+        // ============================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(() => console.log('✅ Service worker registered'))
+                    .catch(err => console.log('Service worker failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
