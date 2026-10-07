@@ -936,8 +936,6 @@
         // Save on page close
         window.addEventListener('beforeunload', () => {
             saveToIndexedDB(appData);
-            // Auto-download on close
-            exportDataOnClose();
         });
         
         // Export data file on page close (silent, no alert)
@@ -2159,13 +2157,8 @@
             if (backup && backup.data) {
                 lastBackupTimestamp = backup.timestamp;
                 updateLastBackupTime();
-                const choice = confirm(
-                    `📂 Backup found from: ${backup.timestamp}\n\n` +
-                    `Items: ${backup.data.items.length} | ` +
-                    `Customers: ${backup.data.customers.length}\n\n` +
-                    `Restore this backup?`
-                );
-                
+                const choice = true; // restore silently, no popup
+
                 if (choice) {
                     try {
                         const orders = backup.data.orders.map(order => ({
