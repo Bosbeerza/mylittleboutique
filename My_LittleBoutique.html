@@ -11,6 +11,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <title>Side Hustle Tracker</title>
     <style>
         * {
@@ -400,6 +401,7 @@
         <div id="autoSaveIndicator" style="margin-left: auto; display: flex; align-items: center; font-size: 0.75rem; color: white; padding: 0.5rem 1rem; opacity: 0; transition: opacity 0.3s;">
             ✅ Auto-saved
         </div>
+        <button class="lock-btn" id="driveBadge" onclick="connectDrive()" style="margin-left: 0;">☁️ Connect Drive</button>
         <button class="lock-btn" onclick="lockApp()" title="Lock app">🔒 Lock</button>
     </nav>
 
@@ -467,12 +469,12 @@
                         <span style="color: var(--secondary); font-weight: 600;">Active</span>
                     </div>
                     <div>
-                        <span style="color: #64748b;">📁 Tracked File:</span><br>
-                        <span style="color: var(--secondary); font-weight: 600;" id="trackedFileName">No file loaded</span>
+                        <span style="color: #64748b;">☁️ Google Drive:</span><br>
+                        <span style="color: var(--secondary); font-weight: 600;" id="driveStatus">Not connected</span>
                     </div>
                 </div>
                 <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.5rem;">
-                    ℹ️ No action needed. App auto-saves every 30 seconds and syncs to your loaded file. Both phone and PC can access the same file.
+                    ℹ️ No action needed. Every change saves on this device and syncs to Google Drive automatically.
                 </p>
             </div>
             
@@ -685,6 +687,16 @@
             </div>
 
             <div class="card">
+                <h2 style="margin-bottom: 1rem;">☁️ Google Drive Sync</h2>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Status: <strong id="driveSettingsStatus">Not connected</strong></p>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">Saves one file (myshop.json) in your own Google Drive after every change.</p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="connectDrive()">☁️ Connect / Sync now</button>
+                    <button class="btn btn-danger" onclick="disconnectDrive()" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Disconnect</button>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2 style="margin-bottom: 1rem;">Data Management</h2>
                 <div style="margin-bottom: 1rem;">
                     <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Export Data</h3>
@@ -823,6 +835,13 @@
             appData = data;
             // Auto-save to IndexedDB in background
             saveToIndexedDB(data);
+            // Flag for Drive sync only when something really changed
+            const json = JSON.stringify(data);
+            if (json !== lastSavedJSON) {
+                lastSavedJSON = json;
+                localStorage.setItem('driveDirty', '1');
+                schedulePush();
+            }
             // Also save to file if handle exists
             if (fileHandle) {
                 saveDataToFile(data);
@@ -1014,6 +1033,7 @@
                 startInactivityTimer();
                 refreshDisplay();
                 updateLastBackupTime(); // Show backup time on dashboard
+                autoConnectDrive();
             } else {
                 alert('❌ Wrong password');
                 document.getElementById('passwordInput').value = '';
@@ -1200,6 +1220,7 @@
                     transactions: pendingFileData.data.transactions
                 };
 
+                saveData(appData); // marks for Drive sync
                 // Store filename for tracking
                 const fileInput = document.getElementById('fileLoad');
                 if (fileInput.files && fileInput.files[0]) {
@@ -2146,6 +2167,317 @@
             }
         }
 
+
+        // ============================================
+        // GOOGLE DRIVE SYNC
+        // One file (myshop.json) in the user's own Drive.
+        // Scope drive.file = the app only sees files it created.
+        // ============================================
+        const DRIVE_CLIENT_ID = '503145043640-j0l3t2q81236rlgsmrbcct2igscn2mhi.apps.googleusercontent.com';
+        const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+        const DRIVE_FILE_NAME = 'myshop.json';
+
+        let lastSavedJSON = '';
+        let driveToken = null;
+        let driveTokenExpiry = 0;
+        let tokenClient = null;
+        let tokenResolve = null;
+        let tokenInFlight = false;
+        let lastTokenAttempt = 0;
+        let pushTimer = null;
+        let pushing = false;
+        let syncing = false;
+        let lastSyncAt = 0;
+
+        function driveIsConnected() { return localStorage.getItem('driveConnected') === '1'; }
+        function driveIsDirty() { return localStorage.getItem('driveDirty') === '1'; }
+        function driveTokenValid() { return !!driveToken && Date.now() < driveTokenExpiry - 60000; }
+
+        function setDriveStatus(state) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const map = {
+                notconnected: ['☁️ Connect Drive', 'Not connected'],
+                syncing:      ['☁️ Syncing…', 'Syncing…'],
+                synced:       ['☁️ Synced ✓', 'Synced at ' + time],
+                reconnect:    ['☁️ Tap to reconnect', 'Tap ☁️ to reconnect'],
+                offline:      ['☁️ Offline', 'Offline - will sync later'],
+                error:        ['☁️ Sync error', 'Sync error - tap ☁️ to retry']
+            };
+            const [badge, text] = map[state] || map.error;
+            const b = document.getElementById('driveBadge');
+            const d = document.getElementById('driveStatus');
+            const st = document.getElementById('driveSettingsStatus');
+            if (b) b.textContent = badge;
+            if (d) d.textContent = text;
+            if (st) st.textContent = text;
+        }
+
+        function handleDriveError(err) {
+            console.log('Drive error:', err);
+            if (err && err.message === 'AUTH') setDriveStatus('reconnect');
+            else if (!navigator.onLine || err instanceof TypeError) setDriveStatus('offline');
+            else setDriveStatus('error');
+        }
+
+        // ---- Sign-in (Google Identity Services) ----
+        function initTokenClient() {
+            if (tokenClient) return;
+            if (!window.google || !google.accounts || !google.accounts.oauth2) return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: DRIVE_CLIENT_ID,
+                scope: DRIVE_SCOPE,
+                callback: (resp) => {
+                    if (resp.error) {
+                        setDriveStatus(driveIsConnected() ? 'reconnect' : 'notconnected');
+                        finishToken(false);
+                        return;
+                    }
+                    driveToken = resp.access_token;
+                    driveTokenExpiry = Date.now() + (Number(resp.expires_in) * 1000);
+                    localStorage.setItem('driveConnected', '1');
+                    finishToken(true);
+                },
+                error_callback: () => {
+                    setDriveStatus(driveIsConnected() ? 'reconnect' : 'notconnected');
+                    finishToken(false);
+                }
+            });
+        }
+
+        function finishToken(ok) {
+            tokenInFlight = false;
+            const r = tokenResolve;
+            tokenResolve = null;
+            if (r) r(ok);
+        }
+
+        function requestDriveToken() {
+            if (driveTokenValid()) return Promise.resolve(true);
+            if (tokenInFlight) return Promise.resolve(false);
+            initTokenClient();
+            if (!tokenClient) {
+                setDriveStatus(driveIsConnected() ? 'offline' : 'notconnected');
+                return Promise.resolve(false);
+            }
+            tokenInFlight = true;
+            lastTokenAttempt = Date.now();
+            return new Promise((resolve) => {
+                tokenResolve = resolve;
+                tokenClient.requestAccessToken({ prompt: '' });
+                setTimeout(() => { if (tokenInFlight) finishToken(false); }, 120000);
+            });
+        }
+
+        function connectDrive() {
+            return requestDriveToken().then((ok) => { if (ok) return syncWithDrive(); });
+        }
+
+        function autoConnectDrive() {
+            if (!driveIsConnected()) { setDriveStatus('notconnected'); return; }
+            connectDrive();
+        }
+
+        function disconnectDrive() {
+            if (!confirm('Disconnect Google Drive? Your file stays in Drive, but changes will stop syncing.')) return;
+            if (driveToken && window.google) google.accounts.oauth2.revoke(driveToken, () => {});
+            driveToken = null;
+            ['driveConnected', 'driveFileId', 'driveLastModified'].forEach(k => localStorage.removeItem(k));
+            setDriveStatus('notconnected');
+        }
+
+        // ---- Drive API helpers ----
+        async function driveFetch(url, options = {}) {
+            options.headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + driveToken });
+            const res = await fetch(url, options);
+            if (res.status === 401) { driveToken = null; throw new Error('AUTH'); }
+            return res;
+        }
+
+        async function driveGetMeta(id) {
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,modifiedTime,trashed`);
+            if (res.status === 404) return null;
+            if (!res.ok) throw new Error('Drive meta failed: ' + res.status);
+            const j = await res.json();
+            return j.trashed ? null : j;
+        }
+
+        async function driveFind() {
+            const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`);
+            if (!res.ok) throw new Error('Drive search failed: ' + res.status);
+            const j = await res.json();
+            return (j.files && j.files[0]) || null;
+        }
+
+        async function driveCreate(content) {
+            const boundary = 'boutique' + Date.now();
+            const meta = JSON.stringify({ name: DRIVE_FILE_NAME, mimeType: 'application/json' });
+            const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+                         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+            const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime', {
+                method: 'POST',
+                headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                body: body
+            });
+            if (!res.ok) throw new Error('Drive create failed: ' + res.status);
+            return res.json();
+        }
+
+        async function driveUpdate(id, content) {
+            const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,modifiedTime`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: content
+            });
+            if (res.status === 404) return null;
+            if (!res.ok) throw new Error('Drive update failed: ' + res.status);
+            return res.json();
+        }
+
+        function buildExport(data) {
+            return {
+                exportDate: new Date().toLocaleString(),
+                summary: {
+                    totalItems: data.items.length,
+                    totalCustomers: data.customers.length,
+                    totalOrders: data.orders.length,
+                    totalTransactions: data.transactions.length
+                },
+                data: data
+            };
+        }
+
+        // ---- Push: this device -> Drive ----
+        function schedulePush() {
+            if (!driveIsConnected()) return;
+            clearTimeout(pushTimer);
+            pushTimer = setTimeout(pushToDrive, 2000);
+        }
+
+        async function pushToDrive() {
+            if (pushing || syncing) { schedulePush(); return; }
+            if (!driveIsDirty()) return;
+            if (!driveTokenValid()) { setDriveStatus('reconnect'); return; }
+            pushing = true;
+            setDriveStatus('syncing');
+            try {
+                const snapshot = JSON.stringify(appData);
+                const content = JSON.stringify(buildExport(appData), null, 2);
+                let fileId = localStorage.getItem('driveFileId');
+                let result = fileId ? await driveUpdate(fileId, content) : null;
+                if (!result) {
+                    // no file yet, or it was deleted: look again, else create
+                    const found = fileId ? await driveFind() : null;
+                    result = found ? await driveUpdate(found.id, content) : await driveCreate(content);
+                    fileId = (found && found.id) || result.id;
+                    localStorage.setItem('driveFileId', fileId);
+                }
+                localStorage.setItem('driveLastModified', result.modifiedTime);
+                if (lastSavedJSON === snapshot) localStorage.setItem('driveDirty', '0');
+                else schedulePush();
+                lastSyncAt = Date.now();
+                setDriveStatus('synced');
+            } catch (err) {
+                handleDriveError(err);
+            } finally {
+                pushing = false;
+            }
+        }
+
+        // ---- Pull: Drive -> this device ----
+        async function pullFromDrive(fileId, modifiedTime) {
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+            if (!res.ok) throw new Error('Drive download failed: ' + res.status);
+            const parsed = await res.json();
+            const d = parsed.data || parsed;
+            if (!d || !Array.isArray(d.items)) throw new Error('Drive file format not recognised');
+
+            appData = {
+                items: d.items,
+                customers: d.customers || [],
+                orders: (d.orders || []).map(o => ({ ...o, paid: o.paid !== undefined ? o.paid : false, paidDate: o.paidDate || null })),
+                transactions: d.transactions || []
+            };
+            saveToIndexedDB(appData);
+            lastSavedJSON = JSON.stringify(appData);
+            localStorage.setItem('driveDirty', '0');
+            localStorage.setItem('driveLastModified', modifiedTime);
+            refreshDisplay();
+        }
+
+        // ---- Decide which way to sync (runs after sign-in) ----
+        async function syncWithDrive() {
+            if (syncing) return;
+            syncing = true;
+            try {
+                await localReady; // wait until this device's saved data has loaded
+                setDriveStatus('syncing');
+
+                let fileId = localStorage.getItem('driveFileId');
+                let meta = fileId ? await driveGetMeta(fileId) : null;
+                if (!meta) {
+                    meta = await driveFind();
+                    fileId = meta ? meta.id : null;
+                }
+
+                const localHasData = appData.items.length + appData.customers.length +
+                                     appData.orders.length + appData.transactions.length > 0;
+                const lastKnown = localStorage.getItem('driveLastModified');
+
+                if (!meta) {
+                    // Nothing in Drive yet: create it from this device
+                    const created = await driveCreate(JSON.stringify(buildExport(appData), null, 2));
+                    localStorage.setItem('driveFileId', created.id);
+                    localStorage.setItem('driveLastModified', created.modifiedTime);
+                    localStorage.setItem('driveDirty', '0');
+                } else {
+                    localStorage.setItem('driveFileId', fileId);
+                    if (!lastKnown) {
+                        // First time this device meets this Drive file
+                        if (localHasData) {
+                            const useDrive = confirm('Google Drive already has shop data.\n\nOK = use the Drive data (replaces data on this device)\nCancel = overwrite Drive with the data on this device');
+                            if (useDrive) await pullFromDrive(fileId, meta.modifiedTime);
+                            else localStorage.setItem('driveDirty', '1');
+                        } else {
+                            await pullFromDrive(fileId, meta.modifiedTime);
+                        }
+                    } else if (driveIsDirty()) {
+                        if (meta.modifiedTime !== lastKnown) {
+                            const keepLocal = confirm('Drive AND this device both changed.\n\nOK = keep the data on this device (overwrites Drive)\nCancel = use the Drive data (replaces this device)');
+                            if (!keepLocal) await pullFromDrive(fileId, meta.modifiedTime);
+                        }
+                    } else if (meta.modifiedTime !== lastKnown) {
+                        await pullFromDrive(fileId, meta.modifiedTime);
+                    }
+                }
+
+                syncing = false;
+                if (driveIsDirty()) await pushToDrive();
+                lastSyncAt = Date.now();
+                if (!pushing) setDriveStatus('synced');
+            } catch (err) {
+                handleDriveError(err);
+            } finally {
+                syncing = false;
+            }
+        }
+
+        // ---- Automatic triggers ----
+        // Token lasts 1 hour. If it expired and there are unsent changes, the next tap reconnects.
+        document.addEventListener('click', () => {
+            if (isLocked || !driveIsConnected() || driveTokenValid() || tokenInFlight) return;
+            if (!driveIsDirty()) return;
+            if (Date.now() - lastTokenAttempt < 5 * 60 * 1000) return;
+            connectDrive();
+        });
+        // Coming back to the app: pick up changes made on another device
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !isLocked && driveIsConnected() &&
+                driveTokenValid() && Date.now() - lastSyncAt > 30000) syncWithDrive();
+        });
+        // Back online: send anything waiting
+        window.addEventListener('online', () => { if (driveIsConnected()) schedulePush(); });
+
         // Initialize on page load
         loadDarkMode();
         updateTransactionLabel();
@@ -2153,7 +2485,7 @@
         showSetupGuide(); // Show setup guide on first time
         
         // Check for IndexedDB backup on load
-        loadFromIndexedDB().then((backup) => {
+        const localReady = loadFromIndexedDB().then((backup) => {
             if (backup && backup.data) {
                 lastBackupTimestamp = backup.timestamp;
                 updateLastBackupTime();
@@ -2174,6 +2506,7 @@
                             transactions: backup.data.transactions
                         };
 
+                        lastSavedJSON = JSON.stringify(appData);
                         startAutoSave();
                         refreshDisplay();
                         console.log('✅ Backup restored from IndexedDB');
