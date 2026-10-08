@@ -571,6 +571,7 @@
                     <button class="nav-btn" onclick="filterInventory('all')" id="filterAll">All Items</button>
                     <button class="nav-btn" onclick="filterInventory('new')" id="filterNew">New</button>
                     <button class="nav-btn" onclick="filterInventory('used')" id="filterUsed">Used</button>
+                    <button class="nav-btn" onclick="filterInventory('out')" id="filterOut">Sold out</button>
                 </div>
                 <div id="inventoryList" class="items-grid"></div>
             </div>
@@ -639,6 +640,12 @@
                             <option value="delivered">Delivered</option>
                             <option value="collected">Collected</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="orderPaid">
+                            Already paid
+                        </label>
                     </div>
                     <div class="form-group">
                         <label for="orderNotes">Notes</label>
@@ -725,19 +732,14 @@
             <h1 style="margin-bottom: 1rem;">Financial Tracking</h1>
 
             <div class="card">
-                <h2 style="margin-bottom: 1rem;">Record Transaction</h2>
+                <h2 style="margin-bottom: 0.25rem;">Record Transaction</h2>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">Sales from orders are added automatically. Use this form for other income and expenses.</p>
                 <form id="financeForm" onsubmit="addTransaction(event)">
                     <div class="form-group">
                         <label for="transType">Type *</label>
                         <select id="transType" required onchange="updateTransactionLabel()">
                             <option value="income">Income (Sale)</option>
                             <option value="expense">Expense (Purchase)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="orderSelectGroup" style="display: none;">
-                        <label for="linkedOrder">Link to Order (Optional)</label>
-                        <select id="linkedOrder">
-                            <option value="">Select order to mark as paid...</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1367,8 +1369,12 @@
         }
 
         function deleteItem(itemId) {
+            const data = getData();
+            if (data.orders.some(o => o.itemId === itemId && o.status === 'pending')) {
+                alert('This item has a pending (reserved) order. Complete or cancel that order first.');
+                return;
+            }
             if (confirm('Delete this item?')) {
-                const data = getData();
                 data.items = data.items.filter(i => i.id !== itemId);
                 saveData(data);
                 refreshDisplay();
@@ -1384,6 +1390,7 @@
             document.getElementById('filterAll').classList.toggle('active', type === 'all');
             document.getElementById('filterNew').classList.toggle('active', type === 'new');
             document.getElementById('filterUsed').classList.toggle('active', type === 'used');
+            document.getElementById('filterOut').classList.toggle('active', type === 'out');
             displayInventory();
         }
 
@@ -1397,6 +1404,8 @@
                 filteredItems = data.items.filter(i => i.condition === 'new');
             } else if (inventoryFilter === 'used') {
                 filteredItems = data.items.filter(i => i.condition === 'used');
+            } else if (inventoryFilter === 'out') {
+                filteredItems = data.items.filter(i => i.quantity <= 0);
             }
 
             if (filteredItems.length === 0) {
@@ -1405,7 +1414,15 @@
             }
 
             list.innerHTML = filteredItems.map(item => {
-                const isLowStock = item.condition === 'new' && item.quantity < 5;
+                const isLowStock = item.condition === 'new' && item.quantity > 0 && item.quantity < 5;
+                const reserved = data.orders
+                    .filter(o => o.itemId === item.id && o.status === 'pending')
+                    .reduce((sum, o) => sum + o.quantity, 0);
+                const lockBadge = item.quantity <= 0
+                    ? (reserved > 0
+                        ? `<span style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🔒 RESERVED</span>`
+                        : `<span style="background: #fee2e2; color: #991b1b; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">SOLD OUT</span>`)
+                    : '';
                 const isActive = item.active || false;
                 return `
                 <div class="item-card">
@@ -1420,7 +1437,7 @@
                                 ${isActive ? `<span style="background: #dcfce7; color: #166534; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🛍️ ACTIVE</span>` : `<span style="background: #f3f4f6; color: #6b7280; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">INACTIVE</span>`}
                             </div>
                         </div>
-                        <div class="item-meta">📦 ${item.quantity} units | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
+                        <div class="item-meta">📦 ${item.quantity} available${reserved > 0 ? ` | 🔒 ${reserved} reserved` : ''} ${lockBadge} | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
                         ${isLowStock ? `<div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.5rem; border-radius: 0.25rem; margin-top: 0.5rem;"><span style="color: #b45309; font-weight: 600;">⚠️ Low Stock Alert</span></div>` : ''}
                         <div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
                         <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>
@@ -1592,32 +1609,90 @@
         // ORDER FUNCTIONS
         // ============================================
 
+        // Stock model:   item.quantity = AVAILABLE units.
+        //                Creating an order reserves (deducts) stock, cancelling gives it back.
+        // Finance model: an order gets ONE income entry as soon as it is PAID or
+        //                DELIVERED/COLLECTED. Changing the order updates or removes it.
+
+        function todayISO() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function orderItemsText(order) {
+            if (Array.isArray(order.items) && order.items.length) {
+                return order.items.length + ' item(s): ' + order.items.map(i => i.name).join(', ');
+            }
+            return `${order.itemName} x${order.quantity}`;
+        }
+
+        // Create / update / remove the Finance entry that belongs to an order
+        function syncOrderTransaction(data, order) {
+            const fulfilled = order.status === 'delivered' || order.status === 'collected';
+            const shouldHaveSale = order.status !== 'cancelled' && (order.paid || fulfilled);
+            const idx = data.transactions.findIndex(t => t.linkedOrderId === order.id);
+
+            if (shouldHaveSale) {
+                const description = `Sale: ${orderItemsText(order)} - ${order.customerName}`;
+                if (idx === -1) {
+                    data.transactions.push({
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        type: 'income',
+                        amount: order.totalPrice,
+                        description: description,
+                        date: order.paidDate || todayISO(),
+                        linkedOrderId: order.id,
+                        auto: true
+                    });
+                } else if (data.transactions[idx].auto) {
+                    data.transactions[idx].amount = order.totalPrice;
+                    data.transactions[idx].description = description;
+                }
+            } else if (idx !== -1 && data.transactions[idx].auto) {
+                data.transactions.splice(idx, 1);
+            }
+        }
+
         function updateOrderSelects() {
             const data = getData();
-            
-            // Update customer select
+
             const customerSelect = document.getElementById('orderCustomer');
+            const prevCustomer = customerSelect.value;
             customerSelect.innerHTML = '<option value="">Select customer...</option>' +
                 data.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            customerSelect.value = prevCustomer;
 
-            // Update item select
             const itemSelect = document.getElementById('orderItem');
+            const prevItem = itemSelect.value;
             itemSelect.innerHTML = '<option value="">Select item...</option>' +
-                data.items.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+                data.items.map(i => i.quantity > 0
+                    ? `<option value="${i.id}">${i.name} (${i.quantity} available)</option>`
+                    : `<option value="${i.id}" disabled>${i.name} (sold out / reserved)</option>`
+                ).join('');
+            itemSelect.value = prevItem;
         }
 
         function addOrder(e) {
             e.preventDefault();
             const data = getData();
-            
+
             const customerId = parseInt(document.getElementById('orderCustomer').value);
             const itemId = parseInt(document.getElementById('orderItem').value);
             const quantity = parseInt(document.getElementById('orderQuantity').value);
 
-            // Find the items to get price
             const item = data.items.find(i => i.id === itemId);
             const customer = data.customers.find(c => c.id === customerId);
+            if (!item || !customer) {
+                alert('Please select a customer and an item');
+                return;
+            }
+            // Soft lock: cannot order more than what is still available
+            if (quantity > item.quantity) {
+                alert(`Only ${item.quantity} of "${item.name}" available (the rest is reserved or sold).`);
+                return;
+            }
 
+            const paid = document.getElementById('orderPaid').checked;
             const newOrder = {
                 id: Date.now(),
                 customerId: customerId,
@@ -1628,16 +1703,14 @@
                 totalPrice: item.sellingPrice * quantity,
                 status: document.getElementById('orderStatus').value,
                 notes: document.getElementById('orderNotes').value,
-                paid: false,
-                paidDate: null,
+                paid: paid,
+                paidDate: paid ? todayISO() : null,
                 dateCreated: new Date().toLocaleDateString()
             };
 
             data.orders.push(newOrder);
-            
-            // Deduct from inventory
-            const itemIndex = data.items.findIndex(i => i.id === itemId);
-            data.items[itemIndex].quantity -= quantity;
+            item.quantity -= quantity; // reserve
+            syncOrderTransaction(data, newOrder);
 
             saveData(data);
             document.getElementById('orderForm').reset();
@@ -1645,12 +1718,74 @@
         }
 
         function deleteOrder(orderId) {
-            if (confirm('Delete this order?')) {
-                const data = getData();
-                data.orders = data.orders.filter(o => o.id !== orderId);
-                saveData(data);
-                refreshDisplay();
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            const hasSale = data.transactions.some(t => t.linkedOrderId === orderId && t.auto);
+            const msg = hasSale
+                ? 'Delete this order? Its sale will also be removed from Finance.'
+                : 'Delete this order?';
+            if (!confirm(msg)) return;
+
+            // Still reserved? give the stock back
+            if (order.status === 'pending' && order.itemId) {
+                const item = data.items.find(i => i.id === order.itemId);
+                if (item) item.quantity += order.quantity;
             }
+            data.transactions = data.transactions.filter(t => !(t.linkedOrderId === orderId && t.auto));
+            data.orders = data.orders.filter(o => o.id !== orderId);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        // Status dropdown on the order card
+        function updateOrderStatus(orderId, newStatus) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order || order.status === newStatus) return;
+            const oldStatus = order.status;
+            const item = order.itemId ? data.items.find(i => i.id === order.itemId) : null;
+
+            if (newStatus === 'cancelled') {
+                if (order.paid) {
+                    alert('This order is marked as paid. Tap "Unpay" first (refund), then cancel it.');
+                    refreshDisplay();
+                    return;
+                }
+                if (item) item.quantity += order.quantity; // release the reservation
+            } else if (oldStatus === 'cancelled' && item) {
+                if (item.quantity < order.quantity) {
+                    alert(`Cannot re-open: only ${item.quantity} of "${item.name}" available now.`);
+                    refreshDisplay();
+                    return;
+                }
+                item.quantity -= order.quantity; // reserve again
+            }
+
+            order.status = newStatus;
+            syncOrderTransaction(data, order);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        // Mark paid / unpay button on the order card
+        function toggleOrderPaid(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order || order.status === 'cancelled') return;
+
+            if (!order.paid) {
+                order.paid = true;
+                order.paidDate = todayISO();
+            } else {
+                if (!confirm('Mark as NOT paid? The sale is removed from Finance unless the order is delivered/collected.')) return;
+                order.paid = false;
+                order.paidDate = null;
+            }
+            syncOrderTransaction(data, order);
+            saveData(data);
+            refreshDisplay();
         }
 
         function displayOrders() {
@@ -1662,39 +1797,43 @@
                 return;
             }
 
-            // Sort by date, newest first
             const sorted = [...data.orders].sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+            const statusColors = { pending: '#fbbf24', delivered: '#34d399', collected: '#34d399', cancelled: '#94a3b8' };
+            const chip = (bg, fg, text) => `<span style="background: ${bg}; color: ${fg}; padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">${text}</span>`;
 
             list.innerHTML = sorted.map(order => {
-                const statusColors = {
-                    'pending': '#fbbf24',
-                    'delivered': '#34d399',
-                    'collected': '#34d399'
-                };
-                const displayStatus = order.paid ? `✅ PAID (${order.paidDate || 'Date'})` : order.status.toUpperCase();
-                const statusColor = order.paid ? '#10b981' : statusColors[order.status];
-                
+                const color = statusColors[order.status] || '#94a3b8';
+                const cancelled = order.status === 'cancelled';
+                const inFinance = data.transactions.some(t => t.linkedOrderId === order.id);
+
+                const chips = [
+                    order.source === 'storefront' ? chip('#2563eb20', '#2563eb', '🛍️ STOREFRONT') : '',
+                    order.status === 'pending' && order.itemId ? chip('#fef3c7', '#b45309', '🔒 RESERVED') : '',
+                    cancelled ? '' : (order.paid ? chip('#dcfce7', '#166534', `✅ PAID ${order.paidDate || ''}`) : chip('#fee2e2', '#991b1b', '⏳ UNPAID')),
+                    inFinance ? chip('#e0e7ff', '#3730a3', '💵 IN FINANCE') : ''
+                ].join(' ');
+
                 return `
-                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem;">
+                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem; ${cancelled ? 'opacity: 0.6;' : ''}">
                     <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
                         <div>
-                            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem;">
-                                <div style="font-weight: 600; font-size: 0.95rem;">${order.customerName}</div>
-                                ${order.source === 'storefront' ? `<span style="background: #2563eb20; color: #2563eb; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">🛍️ STOREFRONT</span>` : ''}
-                            </div>
-                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${order.itemName} x${order.quantity}</div>
+                            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">${order.customerName}</div>
+                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.35rem;">${chips}</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${orderItemsText(order)}</div>
                             <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">💰 R${order.totalPrice.toFixed(2)} | 📅 ${order.dateCreated}</div>
-                            <div style="font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem; background: ${statusColor}20; border-left: 3px solid ${statusColor}; border-radius: 0.25rem;">
-                                <span style="color: ${statusColor}; font-weight: 600;">📍 ${displayStatus}</span>
+                            <div style="font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem; background: ${color}20; border-left: 3px solid ${color}; border-radius: 0.25rem;">
+                                <span style="color: ${color}; font-weight: 600;">📍 ${order.status.toUpperCase()}</span>
                             </div>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                            <select onchange="updateOrderStatus(${order.id}, this.value)" style="background: ${statusColors[order.status]}; color: white; font-weight: 500; font-size: 0.8rem; padding: 0.4rem; border-radius: 0.375rem; border: none; cursor: pointer;">
+                            <select onchange="updateOrderStatus(${order.id}, this.value)" style="background: ${color}; color: white; font-weight: 500; font-size: 0.8rem; padding: 0.4rem; border-radius: 0.375rem; border: none; cursor: pointer;">
                                 <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
                                 <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
                                 <option value="collected" ${order.status === 'collected' ? 'selected' : ''}>Collected</option>
+                                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                             </select>
-                            <button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="editOrder(${order.id})">Edit</button>
+                            ${cancelled ? '' : `<button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="toggleOrderPaid(${order.id})">${order.paid ? '↩️ Unpay' : '💰 Mark paid'}</button>`}
+                            ${order.itemId ? `<button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="editOrder(${order.id})">Edit</button>` : ''}
                             <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="deleteOrder(${order.id})">Delete</button>
                         </div>
                     </div>
@@ -1706,21 +1845,17 @@
         function editOrder(orderId) {
             const data = getData();
             const order = data.orders.find(o => o.id === orderId);
-            
+
             document.getElementById('orderCustomer').value = order.customerId;
             document.getElementById('orderItem').value = order.itemId;
             document.getElementById('orderQuantity').value = order.quantity;
             document.getElementById('orderStatus').value = order.status;
+            document.getElementById('orderPaid').checked = !!order.paid;
             document.getElementById('orderNotes').value = order.notes;
-            
-            // Change form submission to update mode
+
             const form = document.getElementById('orderForm');
             form.onsubmit = (e) => updateOrder(e, orderId);
-            
-            // Change button text
             form.querySelector('button[type="submit"]').textContent = 'Save Changes';
-            
-            // Scroll to form
             form.scrollIntoView({ behavior: 'smooth' });
         }
 
@@ -1728,26 +1863,35 @@
             e.preventDefault();
             const data = getData();
             const order = data.orders.find(o => o.id === orderId);
-            
+            const item = data.items.find(i => i.id === order.itemId);
+            const cancelled = order.status === 'cancelled';
+
             const newQuantity = parseInt(document.getElementById('orderQuantity').value);
-            const oldQuantity = order.quantity;
-            const quantityDifference = newQuantity - oldQuantity;
-            
-            // Update order fields
+            const diff = newQuantity - order.quantity;
+
+            // Soft lock when adding more units
+            if (!cancelled && item && diff > item.quantity) {
+                alert(`Only ${item.quantity} more of "${item.name}" available.`);
+                return;
+            }
+
             order.quantity = newQuantity;
-            order.status = document.getElementById('orderStatus').value;
             order.notes = document.getElementById('orderNotes').value;
-            
-            // Adjust inventory based on quantity change
-            if (quantityDifference !== 0) {
-                const item = data.items.find(i => i.id === order.itemId);
+            if (!cancelled) {
+                const formStatus = document.getElementById('orderStatus').value;
+                if (formStatus) order.status = formStatus;
+                const nowPaid = document.getElementById('orderPaid').checked;
+                if (nowPaid !== !!order.paid) {
+                    order.paid = nowPaid;
+                    order.paidDate = nowPaid ? todayISO() : null;
+                }
                 if (item) {
-                    item.quantity -= quantityDifference;
-                    // Recalculate total price
+                    item.quantity -= diff;
                     order.totalPrice = item.sellingPrice * newQuantity;
                 }
             }
-            
+
+            syncOrderTransaction(data, order);
             saveData(data);
             resetOrderForm();
             refreshDisplay();
@@ -1767,58 +1911,21 @@
             const type = document.getElementById('transType').value;
             const label = type === 'income' ? 'Income (R)' : 'Expense (R)';
             document.querySelector('label[for="transAmount"]').textContent = label + ' *';
-            
-            // Show order selection only for income
-            const orderSelectGroup = document.getElementById('orderSelectGroup');
-            if (type === 'income') {
-                orderSelectGroup.style.display = 'block';
-                updatePendingOrdersList();
-            } else {
-                orderSelectGroup.style.display = 'none';
-            }
-        }
-
-        function updatePendingOrdersList() {
-            const data = getData();
-            // Get unpaid orders (those that aren't marked as paid in the data structure)
-            const unpaidOrders = data.orders.filter(o => !o.paid);
-            
-            const orderSelect = document.getElementById('linkedOrder');
-            orderSelect.innerHTML = '<option value="">Select order to mark as paid...</option>' +
-                unpaidOrders.map(o => `<option value="${o.id}">${o.customerName} - ${o.itemName} (R${o.totalPrice.toFixed(2)})</option>`).join('');
         }
 
         function addTransaction(e) {
             e.preventDefault();
             const data = getData();
-            const linkedOrderId = parseInt(document.getElementById('linkedOrder').value);
 
-            const newTransaction = {
+            data.transactions.push({
                 id: Date.now(),
                 type: document.getElementById('transType').value,
                 amount: parseFloat(document.getElementById('transAmount').value),
                 description: document.getElementById('transDescription').value,
-                date: document.getElementById('transDate').value,
-                linkedOrderId: linkedOrderId || null
-            };
+                date: document.getElementById('transDate').value || todayISO(),
+                linkedOrderId: null
+            });
 
-            // If linking to an order, mark it as paid
-            if (linkedOrderId) {
-                const order = data.orders.find(o => o.id === linkedOrderId);
-                if (order) {
-                    order.paid = true;
-                    order.paidDate = document.getElementById('transDate').value;
-                    
-                    // If the item sold was "used", remove it completely from inventory
-                    // If it was "new", it stays (already decremented at order creation)
-                    const item = data.items.find(i => i.id === order.itemId);
-                    if (item && item.condition === 'used') {
-                        data.items = data.items.filter(i => i.id !== order.itemId);
-                    }
-                }
-            }
-
-            data.transactions.push(newTransaction);
             saveData(data);
             document.getElementById('financeForm').reset();
             document.getElementById('transDate').valueAsDate = new Date();
@@ -1853,7 +1960,7 @@
                 recentTen.map(trans => `
                 <div class="transaction">
                     <div>
-                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}</div>
+                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}${trans.auto ? ' <span style="font-size: 0.7rem; background: #2563eb20; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">🔗 ORDER</span>' : ''}</div>
                         <div class="item-meta">${trans.description}</div>
                         <div class="item-meta">${trans.date}</div>
                     </div>
@@ -1896,7 +2003,7 @@
                 sorted.map(trans => `
                 <div class="transaction">
                     <div>
-                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}</div>
+                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}${trans.auto ? ' <span style="font-size: 0.7rem; background: #2563eb20; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">🔗 ORDER</span>' : ''}</div>
                         <div class="item-meta">${trans.description}</div>
                         <div class="item-meta">${trans.date}</div>
                     </div>
@@ -2117,7 +2224,6 @@
             displayTransactions();
             updateStats();
             updateOrderSelects();
-            updatePendingOrdersList(); // Refresh the finance form's order dropdown
         }
 
         // ============================================
