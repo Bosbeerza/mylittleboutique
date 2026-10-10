@@ -3,10 +3,2892 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="0; url=My_LittleBoutique.html">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="description" content="Business management app for boutique inventory, customers, orders, and finances">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="My LittleBoutique">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <title>My Little Boutique</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f1f5f9;
+            --border: #334155;
+        }
+
+        /* Top navigation: icon tabs */
+        .navbar {
+            background: var(--primary);
+            color: white;
+            padding: 0.3rem 0.35rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            gap: 0.15rem;
+            justify-content: space-between;
+        }
+
+        .tab-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            background: transparent;
+            border: none;
+            color: white;
+            border-radius: 0.5rem;
+            padding: 0.3rem 0.1rem;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.1rem;
+            opacity: 0.75;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .tab-btn .ti { font-size: 1.25rem; line-height: 1; }
+        .tab-btn .tl { font-size: 0.6rem; letter-spacing: 0.02em; }
+        .tab-btn:hover { background: rgba(255,255,255,0.18); opacity: 1; }
+        .tab-btn.active { background: rgba(255,255,255,0.25); opacity: 1; }
+        .tab-btn.divider { border-left: 1px solid rgba(255,255,255,0.3); border-radius: 0 0.5rem 0.5rem 0; margin-left: 0.15rem; }
+
+        /* Small pill buttons (filters, quick ranges) */
+        .pill-btn {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.4rem 0.8rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .pill-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+        /* Date pickers: never overhang the screen */
+        input[type="date"] {
+            min-width: 0;
+            max-width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--card);
+            color: var(--text);
+            height: 2.4rem;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.5rem;
+        }
+        .date-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
+        .date-grid .form-group { margin-bottom: 0; min-width: 0; }
+
+        /* Dashboard */
+        .dash-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .dash-head h1 { font-size: 1.4rem; }
+        .seg { display: inline-flex; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+        .seg-btn { border: none; background: transparent; color: var(--text); padding: 0.3rem 0.75rem; border-radius: 999px; font-size: 0.75rem; cursor: pointer; }
+        .seg-btn.active { background: var(--primary); color: white; }
+
+        .status-strip { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+        .chip { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.72rem; color: #64748b; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; display: inline-block; }
+
+        .hero { background: linear-gradient(135deg, var(--primary), #1d4ed8); color: white; border-radius: 0.75rem; padding: 1.1rem 1.25rem; margin-bottom: 0.75rem; }
+        .hero-label { font-size: 0.8rem; opacity: 0.85; }
+        .hero-value { font-size: 2.1rem; font-weight: 700; line-height: 1.2; margin: 0.15rem 0 0.6rem; }
+        .hero-split { display: flex; gap: 1.5rem; font-size: 0.8rem; }
+        .hero-split span { display: block; opacity: 0.85; }
+        .hero-split strong { font-size: 1rem; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 0.75rem; }
+        .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.75rem; }
+        .kpi-top { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #64748b; }
+        .kpi-val { font-size: 1.35rem; font-weight: 700; margin-top: 0.15rem; }
+        .kpi-sub { font-size: 0.7rem; color: #64748b; }
+
+        .dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.9rem; margin-bottom: 0.75rem; }
+        .dash-card h2 { font-size: 0.95rem; margin-bottom: 0.6rem; }
+
+        .attn { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; cursor: pointer; }
+        .attn:last-child { border-bottom: none; }
+        .attn .chev { margin-left: auto; color: #94a3b8; }
+
+        .dash-tx { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+        .dash-tx:last-child { border-bottom: none; }
+        .dash-ico { width: 2.1rem; height: 2.1rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+        .dash-ico.income { background: #dcfce7; }
+        .dash-ico.expense { background: #fee2e2; }
+        .dash-tx-info { flex: 1; min-width: 0; }
+        .dash-tx-desc { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dash-tx-date { font-size: 0.7rem; color: #64748b; }
+        .dash-tx-amt { font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+        .dash-tx-amt.income { color: var(--secondary); }
+        .dash-tx-amt.expense { color: var(--danger); }
+
+        .rank-row { margin-bottom: 0.7rem; }
+        .rank-row:last-child { margin-bottom: 0; }
+        .rank-top { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 0.2rem; }
+        .rank-top span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rank-sub { font-size: 0.7rem; color: #64748b; }
+        .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .bar > div { height: 100%; background: var(--secondary); border-radius: 3px; }
+
+        /* Main container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Section visibility */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Cards and forms */
+        .card {
+            background: var(--card);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+            cursor: pointer;
+        }
+
+        label:has(input[type="checkbox"]) {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Items list */
+        .item-card {
+            background: var(--card);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .item-info {
+            flex: 1;
+            width: 100%;
+        }
+
+        .item-image {
+            width: 100%;
+            max-width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.375rem;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .item-meta {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* Grid for desktop */
+        @media (min-width: 768px) {
+            .items-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 1rem;
+            }
+
+            .item-card {
+                flex-direction: column;
+            }
+        }
+
+        /* Profit preview */
+        .profit-preview {
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: #64748b;
+        }
+        .profit-preview.positive { background: #dcfce7; border-color: #86efac; color: #166534; }
+        .profit-preview.negative { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+
+        /* Stats dashboard */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        /* Empty state */
+        .empty {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        /* Transaction list */
+        .transaction {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        .transaction:last-child {
+            border-bottom: none;
+        }
+
+        .transaction-type {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .transaction-amount {
+            font-weight: 600;
+        }
+
+        .transaction-income {
+            color: var(--secondary);
+        }
+
+        .transaction-expense {
+            color: var(--danger);
+        }
+
+        /* Password Modal */
+        #passwordModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .password-modal-content {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
+        }
+
+        .password-modal-content h2 {
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+        }
+
+        .password-modal-content input {
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .password-modal-content .btn {
+            width: 100%;
+        }
+
+        .lock-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            transition: background 0.2s;
+            margin-left: auto;
+        }
+
+        .lock-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .container {
+                padding: 0.5rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .navbar {
+                gap: 0.25rem;
+            }
+
+            .nav-btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <p>Loading... <a href="My_LittleBoutique.html">tap here if nothing happens</a></p>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <button class="tab-btn active" data-section="dashboard" onclick="showSection('dashboard')" title="Dashboard"><span class="ti">🏠</span><span class="tl">Home</span></button>
+        <button class="tab-btn" data-section="inventory" onclick="showSection('inventory')" title="Inventory"><span class="ti">📦</span><span class="tl">Stock</span></button>
+        <button class="tab-btn" data-section="customers" onclick="showSection('customers')" title="Customers"><span class="ti">👥</span><span class="tl">Clients</span></button>
+        <button class="tab-btn" data-section="orders" onclick="showSection('orders')" title="Orders"><span class="ti">🧾</span><span class="tl">Orders</span></button>
+        <button class="tab-btn" data-section="finance" onclick="showSection('finance')" title="Finance"><span class="ti">💰</span><span class="tl">Money</span></button>
+        <button class="tab-btn" data-section="settings" onclick="showSection('settings')" title="Settings"><span class="ti">⚙️</span><span class="tl">Settings</span></button>
+        <button class="tab-btn divider" id="driveBadge" onclick="connectDrive()" title="Google Drive sync"><span class="ti" id="driveBadgeIcon">☁️</span><span class="tl">Drive</span></button>
+        <button class="tab-btn" onclick="lockApp()" title="Lock app"><span class="ti">🔒</span><span class="tl">Lock</span></button>
+    </nav>
+
+    <!-- PASSWORD MODAL -->
+    <div id="passwordModal" style="display: none;">
+        <div class="password-modal-content">
+            <h2>🔐 Enter Password</h2>
+            <input type="password" id="passwordInput" placeholder="Password" onkeypress="if(event.key==='Enter') verifyPassword()">
+            <button class="btn btn-primary" onclick="verifyPassword()">Unlock</button>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 1rem;">Kid-proof mode active</div>
+        </div>
+    </div>
+
+    <!-- SETUP GUIDE MODAL -->
+    <div id="setupGuideModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1999; align-items: center; justify-content: center;">
+        <div style="background: var(--card); padding: 2rem; border-radius: 0.5rem; max-width: 400px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary); text-align: center;">📱 Quick Start Guide</h2>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">🔐 Password</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Default: <strong>1234</strong></p>
+                <p style="font-size: 0.875rem; color: #64748b;">Change anytime in Settings → Security</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">📂 Load Your Data</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Go to Settings → Data Management → Load Data</p>
+                <p style="font-size: 0.875rem; color: #64748b;">Select your JSON backup file and click "Load File"</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">✅ Everything Auto-Saves</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ Every 30 seconds (see indicator in top bar)</p>
+                <p style="font-size: 0.875rem; color: #64748b;">✓ When you close the app</p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-top: 0.5rem;">You don't need to do anything!</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">🔒 Lock App</h3>
+                <p style="font-size: 0.875rem; color: #64748b;">Click 🔒 button in top-right anytime</p>
+            </div>
+
+            <button class="btn btn-primary" onclick="closeSetupGuide()" style="width: 100%; margin-top: 1rem;">Got It! Let's Go 🚀</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboard" class="section active">
+            <div class="dash-head">
+                <h1>Dashboard</h1>
+                <div class="seg">
+                    <button class="seg-btn active" id="perMonth" onclick="setDashPeriod('month')">This month</button>
+                    <button class="seg-btn" id="perAll" onclick="setDashPeriod('all')">All time</button>
+                </div>
+            </div>
+
+            <div class="status-strip">
+                <span class="chip"><i class="dot" id="driveDot"></i>☁️ <span id="driveStatus">Not connected</span></span>
+                <span class="chip">💾 <span id="lastBackupTime">-</span></span>
+                <span class="chip">🔐 Locks after 5 min</span>
+            </div>
+
+            <div class="hero">
+                <div class="hero-label" id="dashPeriodLabel">Net profit · this month</div>
+                <div class="hero-value" id="dashProfit">R0.00</div>
+                <div class="hero-split">
+                    <div><span>⬆ Income</span><strong id="dashIncome">R0.00</strong></div>
+                    <div><span>⬇ Expenses</span><strong id="dashExpense">R0.00</strong></div>
+                </div>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi" onclick="showSection('inventory')">
+                    <div class="kpi-top">📦 In stock</div>
+                    <div class="kpi-val" id="kStock">0</div>
+                    <div class="kpi-sub" id="kStockSub"></div>
+                </div>
+                <div class="kpi" onclick="showSection('orders')">
+                    <div class="kpi-top">🔒 Reserved</div>
+                    <div class="kpi-val" id="kReserved">0</div>
+                    <div class="kpi-sub" id="kReservedSub"></div>
+                </div>
+                <div class="kpi" onclick="showSection('orders')">
+                    <div class="kpi-top">⏳ Unpaid</div>
+                    <div class="kpi-val" id="kUnpaid">R0</div>
+                    <div class="kpi-sub" id="kUnpaidSub"></div>
+                </div>
+                <div class="kpi" onclick="showSection('customers')">
+                    <div class="kpi-top">👥 Customers</div>
+                    <div class="kpi-val" id="kCustomers">0</div>
+                    <div class="kpi-sub" id="kCustomersSub"></div>
+                </div>
+            </div>
+
+            <div class="dash-card">
+                <h2>📌 Needs attention</h2>
+                <div id="attentionList"></div>
+            </div>
+
+            <div class="dash-card">
+                <h2>🧾 Recent activity</h2>
+                <div id="recentTransactions"><div class="empty">No transactions yet</div></div>
+            </div>
+
+            <div class="dash-card">
+                <h2>🏆 Top customers <span style="font-weight: 400; font-size: 0.75rem; color: #64748b;" id="topCustPeriod"></span></h2>
+                <div id="topCustomers"></div>
+            </div>
+
+            <div class="dash-card">
+                <h2>⭐ Best sellers <span style="font-weight: 400; font-size: 0.75rem; color: #64748b;" id="topItemPeriod"></span></h2>
+                <div id="topItems"></div>
+            </div>
+        </section>
+
+        <!-- VERIFICATION MODAL -->
+        <!-- INVENTORY SECTION -->
+        <section id="inventory" class="section">
+            <h1 style="margin-bottom: 1rem;">Inventory Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Add New Item</h2>
+                <form id="itemForm" onsubmit="addItem(event)">
+                    <div class="form-group">
+                        <label for="itemName">Item Name *</label>
+                        <input type="text" id="itemName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemQuantity">Quantity *</label>
+                        <input type="number" id="itemQuantity" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemCondition">Condition *</label>
+                        <select id="itemCondition" required>
+                            <option value="new">New</option>
+                            <option value="used">Used</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemCost">Cost Price (R) *</label>
+                        <input type="number" id="itemCost" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemPrice">Selling Price (R) *</label>
+                        <input type="number" id="itemPrice" min="0" step="0.01" required>
+                    </div>
+                    <div id="profitPreview" class="profit-preview">💰 Profit: enter cost and price</div>
+                    <div class="form-group">
+                        <label for="itemDescription">Description</label>
+                        <textarea id="itemDescription" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="itemSeller">Seller Name</label>
+                        <input type="text" id="itemSeller" placeholder="Your name or business name">
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="itemActive">
+                            Active (Show on public shop)
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Picture (Optional)</label>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('itemImageCamera').click()">📷 Take photo</button>
+                            <button type="button" class="btn btn-primary" onclick="document.getElementById('itemImage').click()">🖼️ Choose from gallery</button>
+                        </div>
+                        <input type="file" id="itemImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="onImagePicked('camera')">
+                        <input type="file" id="itemImage" accept="image/*" style="display: none;" onchange="onImagePicked('gallery')">
+                        <img id="imagePreview" alt="Preview" style="display: none; max-width: 120px; max-height: 120px; margin-top: 0.5rem; border-radius: 0.375rem; object-fit: cover;">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Item</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Current Inventory</h2>
+                <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="pill-btn active" onclick="filterInventory('all')" id="filterAll">All Items</button>
+                    <button class="pill-btn" onclick="filterInventory('new')" id="filterNew">New</button>
+                    <button class="pill-btn" onclick="filterInventory('used')" id="filterUsed">Used</button>
+                    <button class="pill-btn" onclick="filterInventory('out')" id="filterOut">Sold out</button>
+                </div>
+                <div id="inventoryList" class="items-grid"></div>
+            </div>
+        </section>
+
+        <!-- CUSTOMERS SECTION -->
+        <section id="customers" class="section">
+            <h1 style="margin-bottom: 1rem;">Customer Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Add New Customer</h2>
+                <form id="customerForm" onsubmit="addCustomer(event)">
+                    <div class="form-group">
+                        <label for="customerName">Name *</label>
+                        <input type="text" id="customerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerPhone">Phone *</label>
+                        <input type="tel" id="customerPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerAddress">Address</label>
+                        <textarea id="customerAddress" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerNotes">Notes / Preferences</label>
+                        <textarea id="customerNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Customer</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Customers</h2>
+                <div id="customersList"></div>
+            </div>
+        </section>
+
+        <!-- ORDERS SECTION -->
+        <section id="orders" class="section">
+            <h1 style="margin-bottom: 1rem;">Order Management</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">New Order</h2>
+                <form id="orderForm" onsubmit="addOrder(event)">
+                    <div class="form-group">
+                        <label for="orderCustomer">Customer *</label>
+                        <select id="orderCustomer" required>
+                            <option value="">Select customer...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderItem">Item *</label>
+                        <select id="orderItem" required>
+                            <option value="">Select item...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderQuantity">Quantity *</label>
+                        <input type="number" id="orderQuantity" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderStatus">Status</label>
+                        <select id="orderStatus">
+                            <option value="pending">Pending</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="collected">Collected</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="orderPaid">
+                            Already paid
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="orderNotes">Notes</label>
+                        <textarea id="orderNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Order</button>
+                </form>
+            </div>
+
+            <div>
+                <h2 style="margin: 1.5rem 0 1rem;">Orders</h2>
+                <div id="ordersList"></div>
+            </div>
+        </section>
+
+        <!-- SETTINGS SECTION -->
+        <section id="settings" class="section">
+            <h1 style="margin-bottom: 1rem;">Settings</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Theme</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                        Dark Mode
+                    </label>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">🔐 Security</h2>
+                <div style="margin-bottom: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Password Protection</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Default: <strong>1234</strong> | Auto-locks after 5 mins of inactivity</p>
+                    <button class="btn btn-primary" onclick="changePassword()">🔑 Change Password</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">☁️ Google Drive Sync</h2>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Status: <strong id="driveSettingsStatus">Not connected</strong></p>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">Saves one file (myshop.json) in your own Google Drive after every change.</p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="connectDrive()">☁️ Connect / Sync now</button>
+                    <button class="btn btn-danger" onclick="disconnectDrive()" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Disconnect</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Data Management</h2>
+                <div style="margin-bottom: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Export Data</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Download your data as a backup file</p>
+                    <button class="btn btn-secondary" onclick="exportData()">📥 Export as JSON</button>
+                </div>
+
+                <div style="border-top: 1px solid var(--border); padding-top: 1rem;">
+                    <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem;">📁 Load Data from Backup</h3>
+                    <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Load a previously saved JSON backup file</p>
+                    <input type="file" id="fileLoad" accept=".json" style="margin-bottom: 0.5rem;">
+                    <button class="btn btn-primary" onclick="verifyFileLoad()">📂 Load File</button>
+                    <div id="fileLoadStatus" style="font-size: 0.875rem; color: #64748b; margin-top: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <div class="card" style="border-top: 2px solid var(--danger);">
+                <h2 style="margin-bottom: 1rem; color: var(--danger);">Danger Zone</h2>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">⚠️ This action cannot be undone</p>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
+            </div>
+        </section>
+
+        <!-- FINANCE SECTION -->
+        <section id="finance" class="section">
+            <h1 style="margin-bottom: 1rem;">Financial Tracking</h1>
+
+            <div class="card">
+                <h2 style="margin-bottom: 0.25rem;">Record Transaction</h2>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">Sales from orders are added automatically. Use this form for other income and expenses.</p>
+                <form id="financeForm" onsubmit="addTransaction(event)">
+                    <div class="form-group">
+                        <label for="transType">Type *</label>
+                        <select id="transType" required onchange="updateTransactionLabel()">
+                            <option value="income">Income (Sale)</option>
+                            <option value="expense">Expense (Purchase)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transAmount">Amount (R) *</label>
+                        <input type="number" id="transAmount" min="0" step="0.01" required>
+                    </div>
+                    <div id="allocGroup" class="form-group" style="background: var(--bg); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border);">
+                        <label style="margin-bottom: 0.5rem;">Where did this money go? (R)</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                            <div><label for="allocStock" style="font-size: 0.75rem;">📦 Stock</label><input type="number" id="allocStock" min="0" step="0.01" placeholder="0"></div>
+                            <div><label for="allocHouse" style="font-size: 0.75rem;">🏠 House</label><input type="number" id="allocHouse" min="0" step="0.01" placeholder="0"></div>
+                            <div><label for="allocLiving" style="font-size: 0.75rem;">🍞 Living</label><input type="number" id="allocLiving" min="0" step="0.01" placeholder="0"></div>
+                        </div>
+                        <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">Anything left blank shows as Unallocated. You can edit the split later.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="transDescription">Description *</label>
+                        <input type="text" id="transDescription" placeholder="e.g., Sold 5 units to John" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transDate">Date</label>
+                        <input type="date" id="transDate" value="">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Record Transaction</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Financial Summary</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value transaction-income" id="summaryIncome">R0</div>
+                        <div class="stat-label">Total Income</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value transaction-expense" id="summaryExpense">R0</div>
+                        <div class="stat-label">Total Expenses</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="summaryProfit">R0</div>
+                        <div class="stat-label">Net Profit</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Where the income went</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-value" id="allocSumStock">R0</div><div class="stat-label">📦 Stock fund</div></div>
+                    <div class="stat-card"><div class="stat-value" id="allocSumHouse">R0</div><div class="stat-label">🏠 House fund</div></div>
+                    <div class="stat-card"><div class="stat-value" id="allocSumLiving">R0</div><div class="stat-label">🍞 Daily living</div></div>
+                    <div class="stat-card"><div class="stat-value" id="allocSumUnalloc" style="color: #b45309;">R0</div><div class="stat-label">⚠️ Unallocated</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">📊 Transaction Report & Export</h2>
+                <div class="date-grid">
+                    <div class="form-group">
+                        <label for="pdfFromDate">From Date</label>
+                        <input type="date" id="pdfFromDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="pdfToDate">To Date</label>
+                        <input type="date" id="pdfToDate">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <button class="pill-btn" onclick="setDateRange('thisMonth')" style="flex: 1;">This month</button>
+                    <button class="pill-btn" onclick="setDateRange('lastMonth')" style="flex: 1;">Last month</button>
+                    <button class="btn btn-secondary" onclick="exportToPDF()" style="flex: 1; min-width: 0; white-space: nowrap;">📄 PDF</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 1rem;">Transaction History</h2>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="transactionSearch">Search Transactions</label>
+                    <input type="text" id="transactionSearch" placeholder="Search by description or date..." onkeyup="searchTransactions()">
+                </div>
+                <div id="transactionsList"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // ============================================
+        // DATA STORAGE - File-Based (JSON)
+        // All data is stored in memory. Must export to JSON to save.
+        // ============================================
+
+        const APP_NAME = 'My Little Boutique';
+
+        // In-memory data storage
+        let appData = {
+            items: [],
+            customers: [],
+            orders: [],
+            transactions: []
+        };
+
+        // File Handle API - remembers which file to save to
+        let fileHandle = null;
+        let fileName = 'myshop.json';
+
+        // Initialize date input to today
+        document.getElementById('transDate').valueAsDate = new Date();
+
+        // Get data from memory
+        function getData() {
+            return appData;
+        }
+
+        // Save data to memory (no localStorage)
+        function saveData(data) {
+            appData = data;
+            // Auto-save to IndexedDB in background
+            saveToIndexedDB(data);
+            // Flag for Drive sync only when something really changed
+            const json = JSON.stringify(data);
+            if (json !== lastSavedJSON) {
+                lastSavedJSON = json;
+                localStorage.setItem('driveDirty', '1');
+                schedulePush();
+            }
+            // Also save to file if handle exists
+            if (fileHandle) {
+                saveDataToFile(data);
+            }
+        }
+
+        // Write data to file using File Handle API
+        async function saveDataToFile(data) {
+            if (!fileHandle) return;
+
+            try {
+                const writable = await fileHandle.createWritable();
+                const exportObj = {
+                    exportDate: new Date().toLocaleString(),
+                    summary: {
+                        totalItems: data.items.length,
+                        totalCustomers: data.customers.length,
+                        totalOrders: data.orders.length,
+                        totalTransactions: data.transactions.length
+                    },
+                    data: data
+                };
+                await writable.write(JSON.stringify(exportObj, null, 2));
+                await writable.close();
+            } catch (error) {
+                console.log('File write error:', error);
+            }
+        }
+
+        // ============================================
+        // INDEXEDDB AUTO-BACKUP
+        // ============================================
+        
+        const DB_NAME = 'MyLittleBoutiqueDB';
+        const STORE_NAME = 'backup';
+
+        function saveToIndexedDB(data) {
+            const request = indexedDB.open(DB_NAME, 1);
+
+            request.onerror = () => console.log('IndexedDB save failed');
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.put({
+                    key: 'appBackup',
+                    data: data,
+                    timestamp: new Date().toLocaleString()
+                });
+                updateLastBackupTime();
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                }
+            };
+        }
+
+        function loadFromIndexedDB() {
+            return new Promise((resolve) => {
+                const request = indexedDB.open(DB_NAME, 1);
+
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const getRequest = store.get('appBackup');
+
+                    getRequest.onsuccess = () => {
+                        resolve(getRequest.result || null);
+                    };
+                };
+
+                request.onerror = () => resolve(null);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+                    }
+                };
+            });
+        }
+
+        // Show auto-save indicator
+        function showAutoSaveIndicator() {
+            const indicator = document.getElementById('autoSaveIndicator');
+            if (!indicator) return;
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+        }
+
+        // Auto-save every 30 seconds
+        let autoSaveInterval = null;
+
+        function startAutoSave() {
+            autoSaveInterval = setInterval(() => {
+                saveData(appData); // This triggers IndexedDB + file save
+                showAutoSaveIndicator();
+            }, 30000); // 30 seconds
+        }
+
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+        }
+
+        // Save on page close
+        window.addEventListener('beforeunload', () => {
+            saveToIndexedDB(appData);
+        });
+        
+        // Export data file on page close (silent, no alert)
+        function exportDataOnClose() {
+            try {
+                const data = appData;
+
+                // If file is being tracked, save to that file
+                if (fileName && fileName !== 'myshop.json') {
+                    saveDataToFile(data);
+                    return;
+                }
+
+                // Otherwise, download backup
+                const companyName = APP_NAME;
+                const exportObj = {
+                    exportDate: new Date().toLocaleString(),
+                    summary: {
+                        totalItems: data.items.length,
+                        totalCustomers: data.customers.length,
+                        totalOrders: data.orders.length,
+                        totalTransactions: data.transactions.length
+                    },
+                    data: data
+                };
+
+                const dataStr = JSON.stringify(exportObj, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                const dateStr = new Date().toISOString().split('T')[0];
+                const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                link.download = `${cleanCompanyName}-${dateStr}.json`;
+                
+                link.click();
+            } catch (error) {
+                console.log('Auto-export on close failed:', error);
+            }
+        }
+
+        // ============================================
+        // PASSWORD SECURITY & TIMEOUT
+        // ============================================
+
+        let appPassword = localStorage.getItem('appPassword') || '1234'; // Default password
+        let isLocked = true;
+        let inactivityTimeout = null;
+        const INACTIVITY_TIME = 5 * 60 * 1000; // 5 minutes
+
+        // Check password on load
+        function initializePasswordProtection() {
+            showPasswordModal();
+        }
+
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.querySelector('.container').style.display = 'none';
+            setTimeout(() => {
+                document.getElementById('passwordInput').focus();
+            }, 100);
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+        }
+
+        function verifyPassword() {
+            const password = document.getElementById('passwordInput').value;
+            if (password === appPassword) {
+                document.getElementById('passwordInput').value = '';
+                hidePasswordModal();
+                isLocked = false;
+                startInactivityTimer();
+                refreshDisplay();
+                updateLastBackupTime(); // Show backup time on dashboard
+                autoConnectDrive();
+            } else {
+                alert('❌ Wrong password');
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        }
+
+        function lockApp() {
+            stopInactivityTimer();
+            isLocked = true;
+            showPasswordModal();
+        }
+
+        function startInactivityTimer() {
+            // Clear existing timer
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+            }
+
+            // Set new timer
+            inactivityTimeout = setTimeout(() => {
+                lockApp();
+            }, INACTIVITY_TIME);
+        }
+
+        function stopInactivityTimer() {
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+            }
+        }
+
+        // Reset timer on any user activity
+        function resetInactivityTimer() {
+            if (!isLocked) {
+                startInactivityTimer();
+            }
+        }
+
+        // Track user activity
+        document.addEventListener('click', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
+        document.addEventListener('touchstart', resetInactivityTimer);
+
+        // Allow password change in settings
+        function changePassword() {
+            const oldPassword = prompt('Current password:');
+            if (oldPassword !== appPassword) {
+                alert('❌ Incorrect current password');
+                return;
+            }
+
+            const newPassword = prompt('New password (remember this!):');
+            if (!newPassword || newPassword.length < 4) {
+                alert('❌ Password must be at least 4 characters');
+                return;
+            }
+
+            const confirmPassword = prompt('Confirm new password:');
+            if (newPassword !== confirmPassword) {
+                alert('❌ Passwords do not match');
+                return;
+            }
+
+            appPassword = newPassword;
+            localStorage.setItem('appPassword', newPassword);
+            alert('✅ Password changed successfully!');
+        }
+
+        // ============================================
+        // SETUP GUIDE
+        // ============================================
+
+        let lastBackupTimestamp = null;
+
+        function showSetupGuide() {
+            const hasSeenSetup = localStorage.getItem('setupGuideSeen');
+            if (!hasSeenSetup) {
+                document.getElementById('setupGuideModal').style.display = 'flex';
+            }
+        }
+
+        function closeSetupGuide() {
+            document.getElementById('setupGuideModal').style.display = 'none';
+            localStorage.setItem('setupGuideSeen', 'true');
+        }
+
+        function updateLastBackupTime() {
+            lastBackupTimestamp = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const elem = document.getElementById('lastBackupTime');
+            if (elem) {
+                elem.textContent = lastBackupTimestamp;
+            }
+        }
+
+        function updateTrackedFileName() {
+            const elem = document.getElementById('trackedFileName');
+            if (elem) {
+                elem.textContent = fileName || 'No file loaded';
+            }
+        }
+        
+        // File verification and loading
+        let pendingFileData = null;
+
+        function verifyFileLoad() {
+            const fileInput = document.getElementById('fileLoad');
+            if (fileInput.files.length === 0) {
+                alert('Please select a JSON file');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    
+                    // Validate structure
+                    if (!importedData.data || !importedData.data.items) {
+                        alert('Invalid backup file format');
+                        return;
+                    }
+
+                    // Store for confirmation
+                    pendingFileData = importedData;
+                    
+                    // Show inline verification
+                    showInlineVerification(importedData);
+                } catch (error) {
+                    alert('Error reading file: ' + error.message);
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function showInlineVerification(fileData) {
+            const statusDiv = document.getElementById('fileLoadStatus');
+            
+            const summary = `
+                <div style="background: var(--bg); padding: 1rem; border-radius: 0.375rem; margin-top: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem;">
+                    <strong>✅ File Verified - Contents:</strong><br>
+                    📦 Items: ${fileData.data.items.length}<br>
+                    👥 Customers: ${fileData.data.customers.length}<br>
+                    📋 Orders: ${fileData.data.orders.length}<br>
+                    💰 Transactions: ${fileData.data.transactions.length}<br>
+                    📅 ${fileData.exportDate || 'Date unknown'}<br>
+                </div>
+            `;
+            
+            statusDiv.innerHTML = summary + 
+                `<div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-primary" onclick="confirmFileLoad()" style="flex: 1;">Load Data</button>
+                    <button class="btn btn-danger" onclick="cancelFileLoad()" style="flex: 1;">Cancel</button>
+                </div>`;
+        }
+
+        function cancelFileLoad() {
+            document.getElementById('fileLoad').value = '';
+            document.getElementById('fileLoadStatus').innerHTML = '';
+            pendingFileData = null;
+        }
+
+        function confirmFileLoad() {
+            if (!pendingFileData) return;
+
+            try {
+                // Add backward compatibility for paid/paidDate properties
+                const orders = pendingFileData.data.orders.map(order => ({
+                    ...order,
+                    paid: order.paid !== undefined ? order.paid : false,
+                    paidDate: order.paidDate || null
+                }));
+
+                // Load data into memory
+                appData = {
+                    items: pendingFileData.data.items,
+                    customers: pendingFileData.data.customers,
+                    orders: orders,
+                    transactions: pendingFileData.data.transactions
+                };
+
+                saveData(appData); // marks for Drive sync
+                // Store filename for tracking
+                const fileInput = document.getElementById('fileLoad');
+                if (fileInput.files && fileInput.files[0]) {
+                    fileName = fileInput.files[0].name;
+                    updateTrackedFileName();
+                }
+
+                document.getElementById('fileLoad').value = '';
+                document.getElementById('fileLoadStatus').innerHTML = '<div style="color: var(--secondary); font-weight: 600;">✅ Data loaded! Syncing to: <strong>' + fileName + '</strong></div>';
+                
+                // Start auto-save (will save to file + IndexedDB)
+                startAutoSave();
+                
+                // Save immediately to file
+                saveDataToFile(appData);
+                
+                setTimeout(() => {
+                    refreshDisplay();
+                }, 500);
+                
+                pendingFileData = null;
+            } catch (error) {
+                alert('Error loading data: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // NAVIGATION
+        // ============================================
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+
+            document.querySelectorAll('.navbar .tab-btn[data-section]').forEach(btn =>
+                btn.classList.toggle('active', btn.dataset.section === sectionId));
+
+            refreshDisplay();
+            window.scrollTo(0, 0);
+        }
+
+        // ============================================
+        // INVENTORY FUNCTIONS
+        // ============================================
+
+        // ---- Picture helpers ----
+        function getSelectedImageFile() {
+            const cam = document.getElementById('itemImageCamera').files[0];
+            const gal = document.getElementById('itemImage').files[0];
+            return cam || gal || null;
+        }
+
+        // Show preview; only one of the two inputs holds a file at a time
+        function onImagePicked(source) {
+            const other = source === 'camera' ? 'itemImage' : 'itemImageCamera';
+            document.getElementById(other).value = '';
+            const file = getSelectedImageFile();
+            const preview = document.getElementById('imagePreview');
+            if (file) {
+                preview.src = URL.createObjectURL(file);
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        // Shrink photo (max 800px, JPEG) so phone photos don't bloat the database
+        function resizeImage(file, maxSize = 800) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.onerror = () => reject(new Error('Could not read image'));
+                img.src = url;
+            });
+        }
+
+        // ---- Profit preview ----
+        function updateProfitPreview() {
+            const box = document.getElementById('profitPreview');
+            const cost = parseFloat(document.getElementById('itemCost').value);
+            const price = parseFloat(document.getElementById('itemPrice').value);
+            const qty = parseInt(document.getElementById('itemQuantity').value) || 1;
+
+            box.className = 'profit-preview';
+            if (isNaN(cost) || isNaN(price)) {
+                box.textContent = '💰 Profit: enter cost and price';
+                return;
+            }
+            const profit = price - cost;
+            const margin = price > 0 ? (profit / price) * 100 : 0;
+            box.classList.add(profit >= 0 ? 'positive' : 'negative');
+            box.textContent = `💰 Profit: R${profit.toFixed(2)} each (${margin.toFixed(0)}% margin)` +
+                (qty > 1 ? ` | R${(profit * qty).toFixed(2)} for ${qty} units` : '');
+        }
+
+        ['itemCost', 'itemPrice', 'itemQuantity'].forEach(id =>
+            document.getElementById(id).addEventListener('input', updateProfitPreview));
+        document.getElementById('itemForm').addEventListener('reset', () => {
+            setTimeout(() => {
+                updateProfitPreview();
+                document.getElementById('imagePreview').style.display = 'none';
+            }, 0);
+        });
+
+        async function addItem(e) {
+            e.preventDefault();
+            const data = getData();
+            const file = getSelectedImageFile();
+            let image = null;
+            if (file) {
+                try { image = await resizeImage(file); }
+                catch (err) { alert('Could not read the picture. Item saved without it.'); }
+            }
+
+            data.items.push({
+                id: Date.now(),
+                name: document.getElementById('itemName').value,
+                quantity: parseInt(document.getElementById('itemQuantity').value),
+                condition: document.getElementById('itemCondition').value,
+                costPrice: parseFloat(document.getElementById('itemCost').value),
+                sellingPrice: parseFloat(document.getElementById('itemPrice').value),
+                description: document.getElementById('itemDescription').value,
+                seller: document.getElementById('itemSeller').value || 'Shop',
+                active: document.getElementById('itemActive').checked,
+                image: image,
+                dateAdded: new Date().toLocaleDateString()
+            });
+
+            saveData(data);
+            document.getElementById('itemForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteItem(itemId) {
+            const data = getData();
+            if (data.orders.some(o => o.itemId === itemId && o.status === 'pending')) {
+                alert('This item has a pending (reserved) order. Complete or cancel that order first.');
+                return;
+            }
+            if (confirm('Delete this item?')) {
+                data.items = data.items.filter(i => i.id !== itemId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        // Track current inventory filter
+        let inventoryFilter = 'all';
+
+        function filterInventory(type) {
+            inventoryFilter = type;
+            // Update button styling
+            document.getElementById('filterAll').classList.toggle('active', type === 'all');
+            document.getElementById('filterNew').classList.toggle('active', type === 'new');
+            document.getElementById('filterUsed').classList.toggle('active', type === 'used');
+            document.getElementById('filterOut').classList.toggle('active', type === 'out');
+            displayInventory();
+        }
+
+        function displayInventory() {
+            const data = getData();
+            const list = document.getElementById('inventoryList');
+
+            // Filter items based on condition
+            let filteredItems = data.items;
+            if (inventoryFilter === 'new') {
+                filteredItems = data.items.filter(i => i.condition === 'new');
+            } else if (inventoryFilter === 'used') {
+                filteredItems = data.items.filter(i => i.condition === 'used');
+            } else if (inventoryFilter === 'out') {
+                filteredItems = data.items.filter(i => i.quantity <= 0);
+            }
+
+            if (filteredItems.length === 0) {
+                list.innerHTML = '<div class="empty">No items in this category. Add one to get started!</div>';
+                return;
+            }
+
+            list.innerHTML = filteredItems.map(item => {
+                const isLowStock = item.condition === 'new' && item.quantity > 0 && item.quantity < 5;
+                const reserved = data.orders
+                    .filter(o => o.itemId === item.id && o.status === 'pending')
+                    .reduce((sum, o) => sum + o.quantity, 0);
+                const lockBadge = item.quantity <= 0
+                    ? (reserved > 0
+                        ? `<span style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🔒 RESERVED</span>`
+                        : `<span style="background: #fee2e2; color: #991b1b; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">SOLD OUT</span>`)
+                    : '';
+                const isActive = item.active || false;
+                return `
+                <div class="item-card">
+                    ${item.image ? `<img src="${item.image}" class="item-image">` : ''}
+                    <div class="item-info">
+                        <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                            <div>
+                                <div class="item-name">${item.name}</div>
+                                <div class="item-meta">👤 ${item.seller || 'Shop'}</div>
+                            </div>
+                            <div style="text-align: right; font-size: 0.75rem;">
+                                ${isActive ? `<span style="background: #dcfce7; color: #166534; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🛍️ ACTIVE</span>` : `<span style="background: #f3f4f6; color: #6b7280; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">INACTIVE</span>`}
+                            </div>
+                        </div>
+                        <div class="item-meta">📦 ${item.quantity} available${reserved > 0 ? ` | 🔒 ${reserved} reserved` : ''} ${lockBadge} | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
+                        ${isLowStock ? `<div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.5rem; border-radius: 0.25rem; margin-top: 0.5rem;"><span style="color: #b45309; font-weight: 600;">⚠️ Low Stock Alert</span></div>` : ''}
+                        <div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
+                        <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>
+                        <div class="item-meta" style="margin-top: 0.5rem; color: #94a3b8;">${item.description || 'No description'}</div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="editItem(${item.id})">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteItem(${item.id})">Delete</button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function editItem(itemId) {
+            const data = getData();
+            const item = data.items.find(i => i.id === itemId);
+            
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemQuantity').value = item.quantity;
+            document.getElementById('itemCondition').value = item.condition;
+            document.getElementById('itemCost').value = item.costPrice;
+            document.getElementById('itemPrice').value = item.sellingPrice;
+            document.getElementById('itemDescription').value = item.description;
+            document.getElementById('itemSeller').value = item.seller || '';
+            document.getElementById('itemActive').checked = item.active || false;
+            updateProfitPreview();
+            
+            // Change form submission to update mode
+            const form = document.getElementById('itemForm');
+            form.onsubmit = (e) => updateItem(e, itemId);
+            
+            // Change button text
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function updateItem(e, itemId) {
+            e.preventDefault();
+            const data = getData();
+            const item = data.items.find(i => i.id === itemId);
+
+            item.name = document.getElementById('itemName').value;
+            item.quantity = parseInt(document.getElementById('itemQuantity').value);
+            item.condition = document.getElementById('itemCondition').value;
+            item.costPrice = parseFloat(document.getElementById('itemCost').value);
+            item.sellingPrice = parseFloat(document.getElementById('itemPrice').value);
+            item.description = document.getElementById('itemDescription').value;
+            item.seller = document.getElementById('itemSeller').value || 'Shop';
+            item.active = document.getElementById('itemActive').checked;
+
+            // Only replace the picture if a new one was chosen
+            const file = getSelectedImageFile();
+            if (file) {
+                try { item.image = await resizeImage(file); }
+                catch (err) { alert('Could not read the new picture. Kept the old one.'); }
+            }
+
+            saveData(data);
+            resetItemForm();
+            refreshDisplay();
+        }
+
+        function resetItemForm() {
+            document.getElementById('itemForm').reset();
+            document.getElementById('itemForm').onsubmit = (e) => addItem(e);
+            document.querySelector('#itemForm button[type="submit"]').textContent = 'Add Item';
+        }
+
+        // ============================================
+        // CUSTOMER FUNCTIONS
+        // ============================================
+
+        function addCustomer(e) {
+            e.preventDefault();
+            const data = getData();
+
+            const newCustomer = {
+                id: Date.now(),
+                name: document.getElementById('customerName').value,
+                phone: document.getElementById('customerPhone').value,
+                address: document.getElementById('customerAddress').value,
+                notes: document.getElementById('customerNotes').value,
+                dateAdded: new Date().toLocaleDateString()
+            };
+
+            data.customers.push(newCustomer);
+            saveData(data);
+            document.getElementById('customerForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteCustomer(customerId) {
+            if (confirm('Delete this customer?')) {
+                const data = getData();
+                data.customers = data.customers.filter(c => c.id !== customerId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        function displayCustomers() {
+            const data = getData();
+            const list = document.getElementById('customersList');
+
+            if (data.customers.length === 0) {
+                list.innerHTML = '<div class="empty">No customers yet.</div>';
+                return;
+            }
+
+            list.innerHTML = data.customers.map(customer => `
+                <div class="card">
+                    <div class="item-name">${customer.name}</div>
+                    <div class="item-meta">📞 ${customer.phone}</div>
+                    ${customer.address ? `<div class="item-meta">📍 ${customer.address}</div>` : ''}
+                    ${customer.notes ? `<div class="item-meta" style="margin-top: 0.5rem;">📝 ${customer.notes}</div>` : ''}
+                    <div class="btn-group" style="margin-top: 1rem;">
+                        <button class="btn btn-primary" onclick="editCustomer(${customer.id})">Edit</button>
+                        <button class="btn btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editCustomer(customerId) {
+            const data = getData();
+            const customer = data.customers.find(c => c.id === customerId);
+            
+            document.getElementById('customerName').value = customer.name;
+            document.getElementById('customerPhone').value = customer.phone;
+            document.getElementById('customerAddress').value = customer.address;
+            document.getElementById('customerNotes').value = customer.notes;
+            
+            // Change form submission to update mode
+            const form = document.getElementById('customerForm');
+            form.onsubmit = (e) => updateCustomer(e, customerId);
+            
+            // Change button text
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            
+            // Scroll to form
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateCustomer(e, customerId) {
+            e.preventDefault();
+            const data = getData();
+            const customer = data.customers.find(c => c.id === customerId);
+            
+            customer.name = document.getElementById('customerName').value;
+            customer.phone = document.getElementById('customerPhone').value;
+            customer.address = document.getElementById('customerAddress').value;
+            customer.notes = document.getElementById('customerNotes').value;
+            
+            saveData(data);
+            resetCustomerForm();
+            refreshDisplay();
+        }
+
+        function resetCustomerForm() {
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerForm').onsubmit = (e) => addCustomer(e);
+            document.querySelector('#customerForm button[type="submit"]').textContent = 'Add Customer';
+        }
+
+        // ============================================
+        // ORDER FUNCTIONS
+        // ============================================
+
+        // Stock model:   item.quantity = AVAILABLE units.
+        //                Creating an order reserves (deducts) stock, cancelling gives it back.
+        // Finance model: an order gets ONE income entry as soon as it is PAID or
+        //                DELIVERED/COLLECTED. Changing the order updates or removes it.
+
+        function todayISO() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function orderItemsText(order) {
+            if (Array.isArray(order.items) && order.items.length) {
+                return order.items.length + ' item(s): ' + order.items.map(i => i.name).join(', ');
+            }
+            return `${order.itemName} x${order.quantity}`;
+        }
+
+        // Create / update / remove the Finance entry that belongs to an order
+        function syncOrderTransaction(data, order) {
+            const fulfilled = order.status === 'delivered' || order.status === 'collected';
+            const shouldHaveSale = order.status !== 'cancelled' && (order.paid || fulfilled);
+            const idx = data.transactions.findIndex(t => t.linkedOrderId === order.id);
+
+            if (shouldHaveSale) {
+                const description = `Sale: ${orderItemsText(order)} - ${order.customerName}`;
+                if (idx === -1) {
+                    data.transactions.push({
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        type: 'income',
+                        amount: order.totalPrice,
+                        description: description,
+                        date: order.paidDate || todayISO(),
+                        linkedOrderId: order.id,
+                        auto: true
+                    });
+                } else if (data.transactions[idx].auto) {
+                    data.transactions[idx].amount = order.totalPrice;
+                    data.transactions[idx].description = description;
+                }
+            } else if (idx !== -1 && data.transactions[idx].auto) {
+                data.transactions.splice(idx, 1);
+            }
+        }
+
+        function updateOrderSelects() {
+            const data = getData();
+
+            const customerSelect = document.getElementById('orderCustomer');
+            const prevCustomer = customerSelect.value;
+            customerSelect.innerHTML = '<option value="">Select customer...</option>' +
+                data.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            customerSelect.value = prevCustomer;
+
+            const itemSelect = document.getElementById('orderItem');
+            const prevItem = itemSelect.value;
+            itemSelect.innerHTML = '<option value="">Select item...</option>' +
+                data.items.map(i => i.quantity > 0
+                    ? `<option value="${i.id}">${i.name} (${i.quantity} available)</option>`
+                    : `<option value="${i.id}" disabled>${i.name} (sold out / reserved)</option>`
+                ).join('');
+            itemSelect.value = prevItem;
+        }
+
+        function addOrder(e) {
+            e.preventDefault();
+            const data = getData();
+
+            const customerId = parseInt(document.getElementById('orderCustomer').value);
+            const itemId = parseInt(document.getElementById('orderItem').value);
+            const quantity = parseInt(document.getElementById('orderQuantity').value);
+
+            const item = data.items.find(i => i.id === itemId);
+            const customer = data.customers.find(c => c.id === customerId);
+            if (!item || !customer) {
+                alert('Please select a customer and an item');
+                return;
+            }
+            // Soft lock: cannot order more than what is still available
+            if (quantity > item.quantity) {
+                alert(`Only ${item.quantity} of "${item.name}" available (the rest is reserved or sold).`);
+                return;
+            }
+
+            const paid = document.getElementById('orderPaid').checked;
+            const newOrder = {
+                id: Date.now(),
+                customerId: customerId,
+                customerName: customer.name,
+                itemId: itemId,
+                itemName: item.name,
+                quantity: quantity,
+                totalPrice: item.sellingPrice * quantity,
+                status: document.getElementById('orderStatus').value,
+                notes: document.getElementById('orderNotes').value,
+                paid: paid,
+                paidDate: paid ? todayISO() : null,
+                dateCreated: new Date().toLocaleDateString()
+            };
+
+            data.orders.push(newOrder);
+            item.quantity -= quantity; // reserve
+            syncOrderTransaction(data, newOrder);
+
+            saveData(data);
+            document.getElementById('orderForm').reset();
+            refreshDisplay();
+        }
+
+        function deleteOrder(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            const hasSale = data.transactions.some(t => t.linkedOrderId === orderId && t.auto);
+            const msg = hasSale
+                ? 'Delete this order? Its sale will also be removed from Finance.'
+                : 'Delete this order?';
+            if (!confirm(msg)) return;
+
+            // Still reserved? give the stock back
+            if (order.status === 'pending' && order.itemId) {
+                const item = data.items.find(i => i.id === order.itemId);
+                if (item) item.quantity += order.quantity;
+            }
+            data.transactions = data.transactions.filter(t => !(t.linkedOrderId === orderId && t.auto));
+            data.orders = data.orders.filter(o => o.id !== orderId);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        // Status dropdown on the order card
+        function updateOrderStatus(orderId, newStatus) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order || order.status === newStatus) return;
+            const oldStatus = order.status;
+            const item = order.itemId ? data.items.find(i => i.id === order.itemId) : null;
+
+            if (newStatus === 'cancelled') {
+                if (order.paid) {
+                    alert('This order is marked as paid. Tap "Unpay" first (refund), then cancel it.');
+                    refreshDisplay();
+                    return;
+                }
+                if (item) item.quantity += order.quantity; // release the reservation
+            } else if (oldStatus === 'cancelled' && item) {
+                if (item.quantity < order.quantity) {
+                    alert(`Cannot re-open: only ${item.quantity} of "${item.name}" available now.`);
+                    refreshDisplay();
+                    return;
+                }
+                item.quantity -= order.quantity; // reserve again
+            }
+
+            order.status = newStatus;
+            syncOrderTransaction(data, order);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        // Mark paid / unpay button on the order card
+        function toggleOrderPaid(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order || order.status === 'cancelled') return;
+
+            if (!order.paid) {
+                order.paid = true;
+                order.paidDate = todayISO();
+            } else {
+                if (!confirm('Mark as NOT paid? The sale is removed from Finance unless the order is delivered/collected.')) return;
+                order.paid = false;
+                order.paidDate = null;
+            }
+            syncOrderTransaction(data, order);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        function displayOrders() {
+            const data = getData();
+            const list = document.getElementById('ordersList');
+
+            if (data.orders.length === 0) {
+                list.innerHTML = '<div class="empty">No orders yet.</div>';
+                return;
+            }
+
+            const sorted = [...data.orders].sort((a, b) => new Date(b.dateCreated) - new Date(a.dateCreated));
+            const statusColors = { pending: '#fbbf24', delivered: '#34d399', collected: '#34d399', cancelled: '#94a3b8' };
+            const chip = (bg, fg, text) => `<span style="background: ${bg}; color: ${fg}; padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">${text}</span>`;
+
+            list.innerHTML = sorted.map(order => {
+                const color = statusColors[order.status] || '#94a3b8';
+                const cancelled = order.status === 'cancelled';
+                const inFinance = data.transactions.some(t => t.linkedOrderId === order.id);
+
+                const chips = [
+                    order.source === 'storefront' ? chip('#2563eb20', '#2563eb', '🛍️ STOREFRONT') : '',
+                    order.status === 'pending' && order.itemId ? chip('#fef3c7', '#b45309', '🔒 RESERVED') : '',
+                    cancelled ? '' : (order.paid ? chip('#dcfce7', '#166534', `✅ PAID ${order.paidDate || ''}`) : chip('#fee2e2', '#991b1b', '⏳ UNPAID')),
+                    inFinance ? chip('#e0e7ff', '#3730a3', '💵 IN FINANCE') : ''
+                ].join(' ');
+
+                return `
+                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem; ${cancelled ? 'opacity: 0.6;' : ''}">
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">${order.customerName}</div>
+                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.35rem;">${chips}</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${orderItemsText(order)}</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">💰 R${order.totalPrice.toFixed(2)} | 📅 ${order.dateCreated}</div>
+                            <div style="font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem; background: ${color}20; border-left: 3px solid ${color}; border-radius: 0.25rem;">
+                                <span style="color: ${color}; font-weight: 600;">📍 ${order.status.toUpperCase()}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                            <select onchange="updateOrderStatus(${order.id}, this.value)" style="background: ${color}; color: white; font-weight: 500; font-size: 0.8rem; padding: 0.4rem; border-radius: 0.375rem; border: none; cursor: pointer;">
+                                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="collected" ${order.status === 'collected' ? 'selected' : ''}>Collected</option>
+                                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                            ${cancelled ? '' : `<button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="toggleOrderPaid(${order.id})">${order.paid ? '↩️ Unpay' : '💰 Mark paid'}</button>`}
+                            ${order.itemId ? `<button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="editOrder(${order.id})">Edit</button>` : ''}
+                            <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="deleteOrder(${order.id})">Delete</button>
+                        </div>
+                    </div>
+                    ${order.notes ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">📝 ${order.notes}</div>` : ''}
+                </div>
+            `; }).join('');
+        }
+
+        function editOrder(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+
+            document.getElementById('orderCustomer').value = order.customerId;
+            document.getElementById('orderItem').value = order.itemId;
+            document.getElementById('orderQuantity').value = order.quantity;
+            document.getElementById('orderStatus').value = order.status;
+            document.getElementById('orderPaid').checked = !!order.paid;
+            document.getElementById('orderNotes').value = order.notes;
+
+            const form = document.getElementById('orderForm');
+            form.onsubmit = (e) => updateOrder(e, orderId);
+            form.querySelector('button[type="submit"]').textContent = 'Save Changes';
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateOrder(e, orderId) {
+            e.preventDefault();
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            const item = data.items.find(i => i.id === order.itemId);
+            const cancelled = order.status === 'cancelled';
+
+            const newQuantity = parseInt(document.getElementById('orderQuantity').value);
+            const diff = newQuantity - order.quantity;
+
+            // Soft lock when adding more units
+            if (!cancelled && item && diff > item.quantity) {
+                alert(`Only ${item.quantity} more of "${item.name}" available.`);
+                return;
+            }
+
+            order.quantity = newQuantity;
+            order.notes = document.getElementById('orderNotes').value;
+            if (!cancelled) {
+                const formStatus = document.getElementById('orderStatus').value;
+                if (formStatus) order.status = formStatus;
+                const nowPaid = document.getElementById('orderPaid').checked;
+                if (nowPaid !== !!order.paid) {
+                    order.paid = nowPaid;
+                    order.paidDate = nowPaid ? todayISO() : null;
+                }
+                if (item) {
+                    item.quantity -= diff;
+                    order.totalPrice = item.sellingPrice * newQuantity;
+                }
+            }
+
+            syncOrderTransaction(data, order);
+            saveData(data);
+            resetOrderForm();
+            refreshDisplay();
+        }
+
+        function resetOrderForm() {
+            document.getElementById('orderForm').reset();
+            document.getElementById('orderForm').onsubmit = (e) => addOrder(e);
+            document.querySelector('#orderForm button[type="submit"]').textContent = 'Create Order';
+        }
+
+        // ============================================
+        // FINANCE FUNCTIONS
+        // ============================================
+
+        function updateTransactionLabel() {
+            const type = document.getElementById('transType').value;
+            const label = type === 'income' ? 'Income (R)' : 'Expense (R)';
+            document.querySelector('label[for="transAmount"]').textContent = label + ' *';
+            document.getElementById('allocGroup').style.display = type === 'income' ? 'block' : 'none';
+        }
+
+        function addTransaction(e) {
+            e.preventDefault();
+            const data = getData();
+            const type = document.getElementById('transType').value;
+            const amount = parseFloat(document.getElementById('transAmount').value);
+            const trans = {
+                id: Date.now(),
+                type: type,
+                amount: amount,
+                description: document.getElementById('transDescription').value,
+                date: document.getElementById('transDate').value || todayISO(),
+                linkedOrderId: null
+            };
+
+            if (type === 'income') {
+                const alloc = {
+                    stock: parseFloat(document.getElementById('allocStock').value) || 0,
+                    house: parseFloat(document.getElementById('allocHouse').value) || 0,
+                    living: parseFloat(document.getElementById('allocLiving').value) || 0
+                };
+                if (alloc.stock + alloc.house + alloc.living > amount + 0.001) {
+                    alert('The split adds up to more than the amount.');
+                    return;
+                }
+                trans.alloc = alloc;
+            }
+
+            data.transactions.push(trans);
+
+            saveData(data);
+            document.getElementById('financeForm').reset();
+            document.getElementById('transDate').valueAsDate = new Date();
+            updateTransactionLabel();
+            refreshDisplay();
+        }
+
+        function deleteTransaction(transId) {
+            if (confirm('Delete this transaction?')) {
+                const data = getData();
+                data.transactions = data.transactions.filter(t => t.id !== transId);
+                saveData(data);
+                refreshDisplay();
+            }
+        }
+
+        // ---- Income allocation helpers ----
+        let editingAllocId = null;
+
+        function allocOf(t) {
+            const a = t.alloc || {};
+            const stock = Number(a.stock) || 0, house = Number(a.house) || 0, living = Number(a.living) || 0;
+            return { stock, house, living, left: t.amount - stock - house - living };
+        }
+
+        function allocBadges(t) {
+            if (t.type !== 'income') return '';
+            const a = allocOf(t);
+            const badge = (txt, bg, fg) => `<span style="font-size: 0.7rem; background: ${bg}; color: ${fg}; padding: 0.1rem 0.4rem; border-radius: 0.25rem; margin-right: 0.25rem; white-space: nowrap;">${txt}</span>`;
+            let out = '';
+            if (a.stock > 0) out += badge('📦 ' + money(a.stock), '#dcfce7', '#166534');
+            if (a.house > 0) out += badge('🏠 ' + money(a.house), '#dbeafe', '#1e40af');
+            if (a.living > 0) out += badge('🍞 ' + money(a.living), '#f3f4f6', '#374151');
+            if (a.left > 0.005) out += badge('⚠️ Unallocated ' + money(a.left), '#fef3c7', '#b45309');
+            if (a.left < -0.005) out += badge('❗ Over by ' + money(-a.left), '#fee2e2', '#b91c1c');
+            return '<div style="margin-top: 0.35rem;">' + out + '</div>';
+        }
+
+        function allocEditor(t) {
+            const a = allocOf(t);
+            const f = (key, label, val) => `<div><label style="font-size: 0.75rem;">${label}</label><input type="number" id="edit_${key}_${t.id}" min="0" step="0.01" value="${val || ''}" placeholder="0"></div>`;
+            return `<div style="grid-column: 1 / -1; background: var(--bg); padding: 0.75rem; border-radius: 0.5rem; margin-top: 0.5rem;">
+                <div style="font-size: 0.8rem; margin-bottom: 0.5rem;">Split ${money(t.amount)} between:</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                    ${f('stock', '📦 Stock', a.stock)}${f('house', '🏠 House', a.house)}${f('living', '🍞 Living', a.living)}
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveAlloc(${t.id})">Save split</button>
+                    <button class="btn" onclick="cancelAllocEdit()" style="background: var(--border);">Cancel</button>
+                </div>
+            </div>`;
+        }
+
+        function editAlloc(id) { editingAllocId = id; rerenderTransactions(); }
+        function cancelAllocEdit() { editingAllocId = null; rerenderTransactions(); }
+
+        function saveAlloc(id) {
+            const data = getData();
+            const t = data.transactions.find(x => x.id === id);
+            if (!t) return;
+            const val = key => parseFloat(document.getElementById(`edit_${key}_${id}`).value) || 0;
+            const alloc = { stock: val('stock'), house: val('house'), living: val('living') };
+            if (alloc.stock + alloc.house + alloc.living > t.amount + 0.001) {
+                alert('The split adds up to more than ' + money(t.amount));
+                return;
+            }
+            t.alloc = alloc;
+            editingAllocId = null;
+            saveData(data);
+            refreshDisplay();
+            rerenderTransactions();
+        }
+
+        function rerenderTransactions() {
+            if (document.getElementById('transactionSearch').value) searchTransactions();
+            else displayTransactions();
+        }
+
+        function transactionRow(trans) {
+            return `
+                <div class="transaction" style="flex-wrap: wrap;">
+                    <div>
+                        <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}${trans.auto ? ' <span style="font-size: 0.7rem; background: #2563eb20; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">🔗 ORDER</span>' : ''}</div>
+                        <div class="item-meta">${trans.description}</div>
+                        <div class="item-meta">${trans.date}</div>
+                        ${allocBadges(trans)}
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="transaction-amount ${trans.type === 'income' ? 'transaction-income' : 'transaction-expense'}">
+                            ${trans.type === 'income' ? '+' : '-'}R${trans.amount.toFixed(2)}
+                        </div>
+                        ${trans.type === 'income' ? `<button class="btn btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.7rem; margin-top: 0.4rem;" onclick="editAlloc(${trans.id})">✏️ Edit split</button>` : ''}
+                    </div>
+                    ${editingAllocId === trans.id ? allocEditor(trans) : ''}
+                </div>`;
+        }
+
+        function displayTransactions() {
+            const data = getData();
+            const list = document.getElementById('transactionsList');
+
+            if (data.transactions.length === 0) {
+                list.innerHTML = '<div class="empty">No transactions yet.</div>';
+                return;
+            }
+
+            const sorted = [...data.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+            const recentTen = sorted.slice(0, 10);
+
+            list.innerHTML = '<div style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">📊 Showing last 10 transactions. Use search to find older ones.</div>' +
+                recentTen.map(transactionRow).join('');
+        }
+
+        function searchTransactions() {
+            const searchQuery = document.getElementById('transactionSearch').value.toLowerCase();
+            const data = getData();
+            const list = document.getElementById('transactionsList');
+
+            if (!searchQuery) {
+                displayTransactions();
+                return;
+            }
+
+            const filtered = data.transactions.filter(trans =>
+                trans.description.toLowerCase().includes(searchQuery) ||
+                trans.date.includes(searchQuery) ||
+                trans.type.includes(searchQuery)
+            );
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="empty">No transactions found matching "' + searchQuery + '"</div>';
+                return;
+            }
+
+            const sorted = filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            list.innerHTML = '<div style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">🔍 Found ' + sorted.length + ' matching transaction(s)</div>' +
+                sorted.map(transactionRow).join('');
+        }
+
+        // ============================================
+        // DASHBOARD & STATS
+        // ============================================
+
+        let dashPeriod = 'month';
+
+        function money(n) {
+            const [whole, dec] = Math.abs(n).toFixed(2).split('.');
+            return (n < 0 ? '-' : '') + 'R' + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
+        }
+        function esc(v) {
+            return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+        function setText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+        function inPeriod(dateStr) {
+            if (dashPeriod === 'all') return true;
+            return (dateStr || '').startsWith(todayISO().slice(0, 7));
+        }
+        function setDashPeriod(p) {
+            dashPeriod = p;
+            document.getElementById('perMonth').classList.toggle('active', p === 'month');
+            document.getElementById('perAll').classList.toggle('active', p === 'all');
+            updateStats();
+        }
+
+        function renderRank(id, rows, emptyText) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (rows.length === 0) { el.innerHTML = `<div class="empty" style="padding: 0.75rem;">${emptyText}</div>`; return; }
+            const max = Math.max(...rows.map(r => r.value)) || 1;
+            const medals = ['🥇', '🥈', '🥉'];
+            el.innerHTML = rows.map((r, i) => `
+                <div class="rank-row">
+                    <div class="rank-top"><span>${medals[i] || (i + 1) + '.'} ${esc(r.name)}</span><strong>${r.right}</strong></div>
+                    <div class="bar"><div style="width: ${Math.max(4, (r.value / max) * 100)}%"></div></div>
+                    <div class="rank-sub">${r.sub}</div>
+                </div>`).join('');
+        }
+
+        function updateStats() {
+            const data = getData();
+            const sum = (list, type) => list.filter(t => t.type === type).reduce((a, t) => a + t.amount, 0);
+
+            // Finance tab summary (all time)
+            const allIncome = sum(data.transactions, 'income');
+            const allExpense = sum(data.transactions, 'expense');
+            setText('summaryIncome', money(allIncome));
+            setText('summaryExpense', money(allExpense));
+            setText('summaryProfit', money(allIncome - allExpense));
+
+            // Where the income went
+            let aStock = 0, aHouse = 0, aLiving = 0, aLeft = 0;
+            data.transactions.filter(t => t.type === 'income').forEach(t => {
+                const a = allocOf(t);
+                aStock += a.stock; aHouse += a.house; aLiving += a.living;
+                if (a.left > 0) aLeft += a.left;
+            });
+            setText('allocSumStock', money(aStock));
+            setText('allocSumHouse', money(aHouse));
+            setText('allocSumLiving', money(aLiving));
+            setText('allocSumUnalloc', money(aLeft));
+
+            // Dashboard (selected period)
+            const tx = data.transactions.filter(t => inPeriod(t.date));
+            const income = sum(tx, 'income');
+            const expense = sum(tx, 'expense');
+            const periodText = dashPeriod === 'month' ? 'this month' : 'all time';
+            setText('dashPeriodLabel', 'Net profit · ' + periodText);
+            setText('dashProfit', money(income - expense));
+            setText('dashIncome', money(income));
+            setText('dashExpense', money(expense));
+            setText('topCustPeriod', '· ' + periodText);
+            setText('topItemPeriod', '· ' + periodText);
+
+            // Stock / orders tiles
+            const inStock = data.items.filter(i => i.quantity > 0);
+            const units = inStock.reduce((a, i) => a + i.quantity, 0);
+            const live = data.orders.filter(o => o.status !== 'cancelled');
+            const pending = live.filter(o => o.status === 'pending');
+            const unpaid = live.filter(o => !o.paid);
+            const sumOrders = list => list.reduce((a, o) => a + o.totalPrice, 0);
+
+            setText('kStock', String(units));
+            setText('kStockSub', inStock.length + ' item' + (inStock.length === 1 ? '' : 's'));
+            setText('kReserved', String(pending.length));
+            setText('kReservedSub', pending.length ? money(sumOrders(pending)) + ' to fulfil' : 'nothing waiting');
+            setText('kUnpaid', money(sumOrders(unpaid)));
+            setText('kUnpaidSub', unpaid.length + ' order' + (unpaid.length === 1 ? '' : 's'));
+            setText('kCustomers', String(data.customers.length));
+            setText('kCustomersSub', data.orders.length + ' order' + (data.orders.length === 1 ? '' : 's') + ' total');
+
+            // Needs attention
+            const attn = [];
+            if (pending.length) attn.push({ icon: '🔒', text: `${pending.length} pending order${pending.length === 1 ? '' : 's'} to deliver/collect`, section: 'orders' });
+            if (unpaid.length) attn.push({ icon: '⏳', text: `${unpaid.length} unpaid order${unpaid.length === 1 ? '' : 's'} (${money(sumOrders(unpaid))} outstanding)`, section: 'orders' });
+            const low = data.items.filter(i => i.condition === 'new' && i.quantity > 0 && i.quantity < 5);
+            if (low.length) attn.push({ icon: '⚠️', text: 'Low stock: ' + low.slice(0, 3).map(i => `${esc(i.name)} (${i.quantity})`).join(', ') + (low.length > 3 ? ` +${low.length - 3} more` : ''), section: 'inventory' });
+            const out = data.items.filter(i => i.quantity <= 0).length;
+            if (out) attn.push({ icon: '🚫', text: `${out} item${out === 1 ? '' : 's'} sold out or fully reserved`, section: 'inventory' });
+            document.getElementById('attentionList').innerHTML = attn.length
+                ? attn.map(a => `<div class="attn" onclick="showSection('${a.section}')"><span>${a.icon}</span><span>${a.text}</span><span class="chev">›</span></div>`).join('')
+                : '<div class="empty" style="padding: 0.75rem;">✅ All caught up</div>';
+
+            // Recent activity (latest 6, any date)
+            const recent = [...data.transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+            document.getElementById('recentTransactions').innerHTML = recent.length
+                ? recent.map(t => `
+                    <div class="dash-tx">
+                        <div class="dash-ico ${t.type}">${t.linkedOrderId ? '🛍️' : (t.type === 'income' ? '💵' : '💸')}</div>
+                        <div class="dash-tx-info">
+                            <div class="dash-tx-desc">${esc(t.description)}</div>
+                            <div class="dash-tx-date">${esc(t.date)}</div>
+                        </div>
+                        <div class="dash-tx-amt ${t.type}">${t.type === 'income' ? '+' : '-'}${money(t.amount)}</div>
+                    </div>`).join('')
+                : '<div class="empty">No transactions yet</div>';
+
+            // Top customers & best sellers (from sales linked to orders, in the selected period)
+            const custMap = {}, itemMap = {};
+            tx.filter(t => t.type === 'income' && t.linkedOrderId).forEach(t => {
+                const o = data.orders.find(x => x.id === t.linkedOrderId);
+                if (!o) return;
+                const c = custMap[o.customerName] || (custMap[o.customerName] = { name: o.customerName, total: 0, count: 0 });
+                c.total += t.amount; c.count++;
+                if (Array.isArray(o.items)) {
+                    o.items.forEach(i => {
+                        const m = itemMap[i.name] || (itemMap[i.name] = { name: i.name, units: 0, total: 0 });
+                        m.units++; m.total += i.sellingPrice;
+                    });
+                } else {
+                    const m = itemMap[o.itemName] || (itemMap[o.itemName] = { name: o.itemName, units: 0, total: 0 });
+                    m.units += o.quantity; m.total += t.amount;
+                }
+            });
+            renderRank('topCustomers',
+                Object.values(custMap).sort((a, b) => b.total - a.total).slice(0, 5)
+                    .map(c => ({ name: c.name, value: c.total, right: money(c.total), sub: c.count + ' order' + (c.count === 1 ? '' : 's') })),
+                'No sales yet in this period');
+            renderRank('topItems',
+                Object.values(itemMap).sort((a, b) => b.units - a.units || b.total - a.total).slice(0, 5)
+                    .map(m => ({ name: m.name, value: m.units, right: m.units + ' sold', sub: money(m.total) + ' revenue' })),
+                'No sales yet in this period');
+        }
+
+        // ============================================
+        // EXPORT FUNCTION
+        // ============================================
+
+        function exportData() {
+            const data = getData();
+            const companyName = APP_NAME;
+            const exportObj = {
+                exportDate: new Date().toLocaleString(),
+                summary: {
+                    totalItems: data.items.length,
+                    totalCustomers: data.customers.length,
+                    totalOrders: data.orders.length,
+                    totalTransactions: data.transactions.length
+                },
+                data: data
+            };
+
+            const dataStr = JSON.stringify(exportObj, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            
+            // Create filename: CompanyName-YYYY-MM-DD.json
+            const dateStr = new Date().toISOString().split('T')[0];
+            const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            link.download = `${cleanCompanyName}-${dateStr}.json`;
+            
+            link.click();
+            alert('✅ Data exported! Find the file in your downloads folder.');
+        }
+
+        // ============================================
+        // PDF EXPORT FUNCTIONS
+        // ============================================
+
+        function setDateRange(rangeType) {
+            const today = new Date();
+            const fromDateInput = document.getElementById('pdfFromDate');
+            const toDateInput = document.getElementById('pdfToDate');
+
+            if (rangeType === 'thisMonth') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                fromDateInput.valueAsDate = firstDay;
+                toDateInput.valueAsDate = today;
+            } else if (rangeType === 'lastMonth') {
+                const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                fromDateInput.valueAsDate = lastMonthStart;
+                toDateInput.valueAsDate = lastMonthEnd;
+            }
+        }
+
+        function exportToPDF() {
+            const data = getData();
+            const companyName = APP_NAME;
+            const fromDate = document.getElementById('pdfFromDate').value;
+            const toDate = document.getElementById('pdfToDate').value;
+
+            if (!fromDate || !toDate) {
+                alert('Please select both from and to dates');
+                return;
+            }
+
+            // Filter transactions by date range
+            const filtered = data.transactions.filter(trans => {
+                const transDate = new Date(trans.date);
+                const from = new Date(fromDate);
+                const to = new Date(toDate);
+                return transDate >= from && transDate <= to;
+            });
+
+            if (filtered.length === 0) {
+                alert('No transactions found in this date range');
+                return;
+            }
+
+            // Sort by date
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Calculate totals
+            const income = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+            const profit = income - expense;
+
+            // Create PDF using jsPDF
+            const { jsPDF } = window;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let yPosition = 20;
+
+            // Header
+            doc.setFontSize(16);
+            doc.text(`${companyName} - Financial Report`, 20, yPosition);
+            yPosition += 10;
+
+            // Date range
+            doc.setFontSize(11);
+            doc.text(`From: ${fromDate} To: ${toDate}`, 20, yPosition);
+            yPosition += 10;
+
+            // Summary
+            doc.setFontSize(10);
+            doc.text(`Total Income: R${income.toFixed(2)}`, 20, yPosition);
+            yPosition += 7;
+            doc.text(`Total Expenses: R${expense.toFixed(2)}`, 20, yPosition);
+            yPosition += 7;
+            doc.setFont(undefined, 'bold');
+            doc.text(`Net Profit: R${profit.toFixed(2)}`, 20, yPosition);
+            doc.setFont(undefined, 'normal');
+            yPosition += 12;
+
+            // Table header
+            doc.setFontSize(9);
+            const tableTop = yPosition;
+            doc.text('Date', 20, tableTop);
+            doc.text('Description', 50, tableTop);
+            doc.text('Type', 130, tableTop);
+            doc.text('Amount', 160, tableTop);
+            yPosition += 7;
+
+            // Table rows
+            filtered.forEach((trans) => {
+                if (yPosition > pageHeight - 20) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+
+                doc.text(trans.date, 20, yPosition);
+                doc.text(trans.description.substring(0, 35), 50, yPosition);
+                doc.text(trans.type.toUpperCase(), 130, yPosition);
+                doc.text(`R${trans.amount.toFixed(2)}`, 160, yPosition);
+                yPosition += 6;
+            });
+
+            // Footer
+            yPosition += 5;
+            doc.setFontSize(8);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, pageHeight - 10);
+
+            // Download
+            const dateStr = new Date().toISOString().split('T')[0];
+            const cleanCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            doc.save(`${cleanCompanyName}-report-${fromDate}-to-${toDate}.pdf`);
+        }
+
+        // ============================================
+        // REFRESH ALL DISPLAYS
+        // ============================================
+
+        function refreshDisplay() {
+            displayInventory();
+            displayCustomers();
+            displayOrders();
+            displayTransactions();
+            updateStats();
+            updateOrderSelects();
+        }
+
+        // ============================================
+        // SETTINGS FUNCTIONS
+        // ============================================
+
+        function toggleDarkMode() {
+            const isDarkMode = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            document.getElementById('darkModeToggle').checked = isDarkMode;
+        }
+
+        function loadDarkMode() {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggle').checked = true;
+            }
+        }
+
+        // importData removed - use verifyFileLoad instead
+
+        function clearAllData() {
+            if (confirm('⚠️ This will DELETE all your current session data. Type YES to confirm:')) {
+                const confirmation = prompt('Type YES to permanently clear memory:');
+                if (confirmation === 'YES') {
+                    appData = {
+                        items: [],
+                        customers: [],
+                        orders: [],
+                        transactions: []
+                    };
+                    alert('All data cleared from memory');
+                    refreshDisplay();
+                }
+            }
+        }
+
+
+        // ============================================
+        // GOOGLE DRIVE SYNC
+        // One file (myshop.json) in the user's own Drive.
+        // Scope drive.file = the app only sees files it created.
+        // ============================================
+        const DRIVE_CLIENT_ID = '503145043640-j0l3t2q81236rlgsmrbcct2igscn2mhi.apps.googleusercontent.com';
+        const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+        const DRIVE_FILE_NAME = 'myshop.json';
+
+        let lastSavedJSON = '';
+        let driveToken = null;
+        let driveTokenExpiry = 0;
+        let tokenClient = null;
+        let tokenResolve = null;
+        let tokenInFlight = false;
+        let lastTokenAttempt = 0;
+        let pushTimer = null;
+        let pushing = false;
+        let syncing = false;
+        let lastSyncAt = 0;
+
+        function driveIsConnected() { return localStorage.getItem('driveConnected') === '1'; }
+        function driveIsDirty() { return localStorage.getItem('driveDirty') === '1'; }
+        function driveTokenValid() { return !!driveToken && Date.now() < driveTokenExpiry - 60000; }
+
+        function setDriveStatus(state) {
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const map = {
+                notconnected: ['☁️', 'Not connected',               '#94a3b8'],
+                syncing:      ['🔄', 'Syncing…',                    '#f59e0b'],
+                synced:       ['✅', 'Synced at ' + time,           '#10b981'],
+                reconnect:    ['⚠️', 'Tap ☁️ to reconnect',          '#ef4444'],
+                offline:      ['📴', 'Offline - will sync later',   '#f59e0b'],
+                error:        ['❗', 'Sync error - tap ☁️ to retry', '#ef4444']
+            };
+            const [icon, text, color] = map[state] || map.error;
+            const ic = document.getElementById('driveBadgeIcon');
+            const d = document.getElementById('driveStatus');
+            const st = document.getElementById('driveSettingsStatus');
+            const dot = document.getElementById('driveDot');
+            if (ic) ic.textContent = icon;
+            if (d) d.textContent = text;
+            if (st) st.textContent = text;
+            if (dot) dot.style.background = color;
+        }
+
+        function handleDriveError(err) {
+            console.log('Drive error:', err);
+            if (err && err.message === 'AUTH') setDriveStatus('reconnect');
+            else if (!navigator.onLine || err instanceof TypeError) setDriveStatus('offline');
+            else setDriveStatus('error');
+        }
+
+        // ---- Sign-in (Google Identity Services) ----
+        function initTokenClient() {
+            if (tokenClient) return;
+            if (!window.google || !google.accounts || !google.accounts.oauth2) return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: DRIVE_CLIENT_ID,
+                scope: DRIVE_SCOPE,
+                callback: (resp) => {
+                    if (resp.error) {
+                        setDriveStatus(driveIsConnected() ? 'reconnect' : 'notconnected');
+                        finishToken(false);
+                        return;
+                    }
+                    driveToken = resp.access_token;
+                    driveTokenExpiry = Date.now() + (Number(resp.expires_in) * 1000);
+                    localStorage.setItem('driveConnected', '1');
+                    finishToken(true);
+                },
+                error_callback: () => {
+                    setDriveStatus(driveIsConnected() ? 'reconnect' : 'notconnected');
+                    finishToken(false);
+                }
+            });
+        }
+
+        function finishToken(ok) {
+            tokenInFlight = false;
+            const r = tokenResolve;
+            tokenResolve = null;
+            if (r) r(ok);
+        }
+
+        function requestDriveToken() {
+            if (driveTokenValid()) return Promise.resolve(true);
+            if (tokenInFlight) return Promise.resolve(false);
+            initTokenClient();
+            if (!tokenClient) {
+                setDriveStatus(driveIsConnected() ? 'offline' : 'notconnected');
+                return Promise.resolve(false);
+            }
+            tokenInFlight = true;
+            lastTokenAttempt = Date.now();
+            return new Promise((resolve) => {
+                tokenResolve = resolve;
+                tokenClient.requestAccessToken({ prompt: '' });
+                setTimeout(() => { if (tokenInFlight) finishToken(false); }, 120000);
+            });
+        }
+
+        function connectDrive() {
+            return requestDriveToken().then((ok) => { if (ok) return syncWithDrive(); });
+        }
+
+        function autoConnectDrive() {
+            if (!driveIsConnected()) { setDriveStatus('notconnected'); return; }
+            connectDrive();
+        }
+
+        function disconnectDrive() {
+            if (!confirm('Disconnect Google Drive? Your file stays in Drive, but changes will stop syncing.')) return;
+            if (driveToken && window.google) google.accounts.oauth2.revoke(driveToken, () => {});
+            driveToken = null;
+            ['driveConnected', 'driveFileId', 'driveLastModified'].forEach(k => localStorage.removeItem(k));
+            setDriveStatus('notconnected');
+        }
+
+        // ---- Drive API helpers ----
+        async function driveFetch(url, options = {}) {
+            options.headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + driveToken });
+            const res = await fetch(url, options);
+            if (res.status === 401) { driveToken = null; throw new Error('AUTH'); }
+            return res;
+        }
+
+        async function driveGetMeta(id) {
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,modifiedTime,trashed`);
+            if (res.status === 404) return null;
+            if (!res.ok) throw new Error('Drive meta failed: ' + res.status);
+            const j = await res.json();
+            return j.trashed ? null : j;
+        }
+
+        async function driveFind() {
+            const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc`);
+            if (!res.ok) throw new Error('Drive search failed: ' + res.status);
+            const j = await res.json();
+            return (j.files && j.files[0]) || null;
+        }
+
+        async function driveCreate(content) {
+            const boundary = 'boutique' + Date.now();
+            const meta = JSON.stringify({ name: DRIVE_FILE_NAME, mimeType: 'application/json' });
+            const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+                         `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
+            const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime', {
+                method: 'POST',
+                headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                body: body
+            });
+            if (!res.ok) throw new Error('Drive create failed: ' + res.status);
+            return res.json();
+        }
+
+        async function driveUpdate(id, content) {
+            const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,modifiedTime`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: content
+            });
+            if (res.status === 404) return null;
+            if (!res.ok) throw new Error('Drive update failed: ' + res.status);
+            return res.json();
+        }
+
+        function buildExport(data) {
+            return {
+                exportDate: new Date().toLocaleString(),
+                summary: {
+                    totalItems: data.items.length,
+                    totalCustomers: data.customers.length,
+                    totalOrders: data.orders.length,
+                    totalTransactions: data.transactions.length
+                },
+                data: data
+            };
+        }
+
+        // ---- Push: this device -> Drive ----
+        function schedulePush() {
+            if (!driveIsConnected()) return;
+            clearTimeout(pushTimer);
+            pushTimer = setTimeout(pushToDrive, 2000);
+        }
+
+        async function pushToDrive() {
+            if (pushing || syncing) { schedulePush(); return; }
+            if (!driveIsDirty()) return;
+            if (!driveTokenValid()) { setDriveStatus('reconnect'); return; }
+            pushing = true;
+            setDriveStatus('syncing');
+            try {
+                const snapshot = JSON.stringify(appData);
+                const content = JSON.stringify(buildExport(appData), null, 2);
+                let fileId = localStorage.getItem('driveFileId');
+                let result = fileId ? await driveUpdate(fileId, content) : null;
+                if (!result) {
+                    // no file yet, or it was deleted: look again, else create
+                    const found = fileId ? await driveFind() : null;
+                    result = found ? await driveUpdate(found.id, content) : await driveCreate(content);
+                    fileId = (found && found.id) || result.id;
+                    localStorage.setItem('driveFileId', fileId);
+                }
+                localStorage.setItem('driveLastModified', result.modifiedTime);
+                if (lastSavedJSON === snapshot) localStorage.setItem('driveDirty', '0');
+                else schedulePush();
+                lastSyncAt = Date.now();
+                setDriveStatus('synced');
+            } catch (err) {
+                handleDriveError(err);
+            } finally {
+                pushing = false;
+            }
+        }
+
+        // ---- Pull: Drive -> this device ----
+        async function pullFromDrive(fileId, modifiedTime) {
+            const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+            if (!res.ok) throw new Error('Drive download failed: ' + res.status);
+            const parsed = await res.json();
+            const d = parsed.data || parsed;
+            if (!d || !Array.isArray(d.items)) throw new Error('Drive file format not recognised');
+
+            appData = {
+                items: d.items,
+                customers: d.customers || [],
+                orders: (d.orders || []).map(o => ({ ...o, paid: o.paid !== undefined ? o.paid : false, paidDate: o.paidDate || null })),
+                transactions: d.transactions || []
+            };
+            saveToIndexedDB(appData);
+            lastSavedJSON = JSON.stringify(appData);
+            localStorage.setItem('driveDirty', '0');
+            localStorage.setItem('driveLastModified', modifiedTime);
+            refreshDisplay();
+        }
+
+        // ---- Decide which way to sync (runs after sign-in) ----
+        async function syncWithDrive() {
+            if (syncing) return;
+            syncing = true;
+            try {
+                await localReady; // wait until this device's saved data has loaded
+                setDriveStatus('syncing');
+
+                let fileId = localStorage.getItem('driveFileId');
+                let meta = fileId ? await driveGetMeta(fileId) : null;
+                if (!meta) {
+                    meta = await driveFind();
+                    fileId = meta ? meta.id : null;
+                }
+
+                const localHasData = appData.items.length + appData.customers.length +
+                                     appData.orders.length + appData.transactions.length > 0;
+                const lastKnown = localStorage.getItem('driveLastModified');
+
+                if (!meta) {
+                    // Nothing in Drive yet: create it from this device
+                    const created = await driveCreate(JSON.stringify(buildExport(appData), null, 2));
+                    localStorage.setItem('driveFileId', created.id);
+                    localStorage.setItem('driveLastModified', created.modifiedTime);
+                    localStorage.setItem('driveDirty', '0');
+                } else {
+                    localStorage.setItem('driveFileId', fileId);
+                    if (!lastKnown) {
+                        // First time this device meets this Drive file
+                        if (localHasData) {
+                            const useDrive = confirm('Google Drive already has shop data.\n\nOK = use the Drive data (replaces data on this device)\nCancel = overwrite Drive with the data on this device');
+                            if (useDrive) await pullFromDrive(fileId, meta.modifiedTime);
+                            else localStorage.setItem('driveDirty', '1');
+                        } else {
+                            await pullFromDrive(fileId, meta.modifiedTime);
+                        }
+                    } else if (driveIsDirty()) {
+                        if (meta.modifiedTime !== lastKnown) {
+                            const keepLocal = confirm('Drive AND this device both changed.\n\nOK = keep the data on this device (overwrites Drive)\nCancel = use the Drive data (replaces this device)');
+                            if (!keepLocal) await pullFromDrive(fileId, meta.modifiedTime);
+                        }
+                    } else if (meta.modifiedTime !== lastKnown) {
+                        await pullFromDrive(fileId, meta.modifiedTime);
+                    }
+                }
+
+                syncing = false;
+                if (driveIsDirty()) await pushToDrive();
+                lastSyncAt = Date.now();
+                if (!pushing) setDriveStatus('synced');
+            } catch (err) {
+                handleDriveError(err);
+            } finally {
+                syncing = false;
+            }
+        }
+
+        // ---- Automatic triggers ----
+        // Token lasts 1 hour. If it expired and there are unsent changes, the next tap reconnects.
+        document.addEventListener('click', () => {
+            if (isLocked || !driveIsConnected() || driveTokenValid() || tokenInFlight) return;
+            if (!driveIsDirty()) return;
+            if (Date.now() - lastTokenAttempt < 5 * 60 * 1000) return;
+            connectDrive();
+        });
+        // Coming back to the app: pick up changes made on another device
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !isLocked && driveIsConnected() &&
+                driveTokenValid() && Date.now() - lastSyncAt > 30000) syncWithDrive();
+        });
+        // Back online: send anything waiting
+        window.addEventListener('online', () => { if (driveIsConnected()) schedulePush(); });
+
+        // Initialize on page load
+        loadDarkMode();
+        updateTransactionLabel();
+        initializePasswordProtection(); // Require password to access app
+        showSetupGuide(); // Show setup guide on first time
+        
+        // Check for IndexedDB backup on load
+        const localReady = loadFromIndexedDB().then((backup) => {
+            if (backup && backup.data) {
+                lastBackupTimestamp = backup.timestamp;
+                updateLastBackupTime();
+                const choice = true; // restore silently, no popup
+
+                if (choice) {
+                    try {
+                        const orders = backup.data.orders.map(order => ({
+                            ...order,
+                            paid: order.paid !== undefined ? order.paid : false,
+                            paidDate: order.paidDate || null
+                        }));
+
+                        appData = {
+                            items: backup.data.items,
+                            customers: backup.data.customers,
+                            orders: orders,
+                            transactions: backup.data.transactions
+                        };
+
+                        lastSavedJSON = JSON.stringify(appData);
+                        startAutoSave();
+                        refreshDisplay();
+                        console.log('✅ Backup restored from IndexedDB');
+                    } catch (error) {
+                        console.log('Error restoring backup:', error);
+                    }
+                }
+            }
+        });
+        // ============================================
+        // PWA: register service worker (needed for install + offline)
+        // ============================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(() => console.log('✅ Service worker registered'))
+                    .catch(err => console.log('Service worker failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>
