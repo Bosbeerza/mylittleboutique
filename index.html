@@ -676,6 +676,7 @@
             <div class="card">
                 <h2 style="margin-bottom: 1rem;">Add New Customer</h2>
                 <form id="customerForm" onsubmit="addCustomer(event)">
+                    <button type="button" class="btn btn-secondary" onclick="importContact()" style="width: 100%; margin-bottom: 1rem;">📇 Import from phone contacts</button>
                     <div class="form-group">
                         <label for="customerName">Name *</label>
                         <input type="text" id="customerName" required>
@@ -1701,6 +1702,24 @@
             saveData(data);
             resetCustomerForm();
             refreshDisplay();
+        }
+
+        // Pick one contact from the phone's address book (Chrome on Android only)
+        async function importContact() {
+            if (!('contacts' in navigator) || !('ContactsManager' in window)) {
+                alert('Contact import only works in Chrome on an Android phone. Please type the details in instead.');
+                return;
+            }
+            try {
+                const picked = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (!picked.length) return; // cancelled
+                const c = picked[0];
+                if (c.name && c.name[0]) document.getElementById('customerName').value = c.name[0];
+                if (c.tel && c.tel[0]) document.getElementById('customerPhone').value = c.tel[0].replace(/[\s\-()]/g, '');
+            } catch (err) {
+                console.log('Contact import failed:', err);
+                alert('Could not open your contacts. Check that Chrome is allowed to access contacts.');
+            }
         }
 
         function resetCustomerForm() {
