@@ -539,6 +539,7 @@
 
             <div class="status-strip">
                 <span class="chip"><i class="dot" id="driveDot"></i>☁️ <span id="driveStatus">Not connected</span></span>
+                <span class="chip">👤 <span id="driveAccount">-</span></span>
                 <span class="chip">💾 <span id="lastBackupTime">-</span></span>
                 <span class="chip">🔐 Locks after 5 min</span>
             </div>
@@ -778,9 +779,11 @@
             <div class="card">
                 <h2 style="margin-bottom: 1rem;">☁️ Google Drive Sync</h2>
                 <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Status: <strong id="driveSettingsStatus">Not connected</strong></p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Google account: <strong id="driveSettingsAccount">-</strong></p>
                 <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">Saves one file (myshop.json) in your own Google Drive after every change.</p>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="btn btn-primary" onclick="connectDrive()">☁️ Connect / Sync now</button>
+                    <button class="btn" onclick="switchDriveAccount()" style="background: var(--border); padding: 0.5rem 1rem; font-size: 0.875rem;">👤 Use a different account</button>
                     <button class="btn btn-danger" onclick="disconnectDrive()" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Disconnect</button>
                 </div>
             </div>
@@ -2573,6 +2576,48 @@
             if (d) d.textContent = text;
             if (st) st.textContent = text;
             if (dot) dot.style.background = color;
+            showDriveAccount();
+        }
+
+        // ---- Which Google account is this synced to? ----
+        function showDriveAccount() {
+            const email = driveIsConnected() ? (localStorage.getItem('driveEmail') || 'checking…') : '-';
+            const a = document.getElementById('driveAccount');
+            const b = document.getElementById('driveSettingsAccount');
+            if (a) a.textContent = email;
+            if (b) b.textContent = email;
+        }
+
+        async function loadDriveAccount() {
+            try {
+                const res = await driveFetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)');
+                if (!res.ok) return;
+                const info = await res.json();
+                const email = info.user && info.user.emailAddress;
+                if (!email) return;
+                const previous = localStorage.getItem('driveEmail');
+                if (previous && previous !== email) {
+                    // Different account: forget the old file so we never mix the two
+                    localStorage.removeItem('driveFileId');
+                    localStorage.removeItem('driveLastModified');
+                    alert('⚠️ Drive account changed\n\nFrom: ' + previous + '\nTo: ' + email);
+                }
+                localStorage.setItem('driveEmail', email);
+                showDriveAccount();
+            } catch (err) {
+                console.log('Could not read Drive account:', err);
+            }
+        }
+
+        function switchDriveAccount() {
+            if (!confirm('Sign in with a different Google account?\n\nThis device will then sync with that account\'s myshop.json.')) return;
+            if (driveToken && window.google) google.accounts.oauth2.revoke(driveToken, () => {});
+            driveToken = null;
+            driveTokenExpiry = 0;
+            ['driveFileId', 'driveLastModified'].forEach(k => localStorage.removeItem(k));
+            requestDriveToken('select_account').then(async (ok) => {
+                if (ok) { await loadDriveAccount(); return syncWithDrive(); }
+            });
         }
 
         function handleDriveError(err) {
@@ -2614,7 +2659,7 @@
             if (r) r(ok);
         }
 
-        function requestDriveToken() {
+        function requestDriveToken(prompt) {
             if (driveTokenValid()) return Promise.resolve(true);
             if (tokenInFlight) return Promise.resolve(false);
             initTokenClient();
@@ -2626,13 +2671,15 @@
             lastTokenAttempt = Date.now();
             return new Promise((resolve) => {
                 tokenResolve = resolve;
-                tokenClient.requestAccessToken({ prompt: '' });
+                tokenClient.requestAccessToken({ prompt: prompt || '' });
                 setTimeout(() => { if (tokenInFlight) finishToken(false); }, 120000);
             });
         }
 
         function connectDrive() {
-            return requestDriveToken().then((ok) => { if (ok) return syncWithDrive(); });
+            return requestDriveToken().then(async (ok) => {
+                if (ok) { await loadDriveAccount(); return syncWithDrive(); }
+            });
         }
 
         function autoConnectDrive() {
@@ -2644,7 +2691,7 @@
             if (!confirm('Disconnect Google Drive? Your file stays in Drive, but changes will stop syncing.')) return;
             if (driveToken && window.google) google.accounts.oauth2.revoke(driveToken, () => {});
             driveToken = null;
-            ['driveConnected', 'driveFileId', 'driveLastModified'].forEach(k => localStorage.removeItem(k));
+            ['driveConnected', 'driveFileId', 'driveLastModified', 'driveEmail'].forEach(k => localStorage.removeItem(k));
             setDriveStatus('notconnected');
         }
 
