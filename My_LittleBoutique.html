@@ -526,6 +526,26 @@
         </div>
     </div>
 
+    <!-- WHATSAPP MESSAGE MODAL -->
+    <div id="waModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1998; align-items: center; justify-content: center;">
+        <div style="background: var(--card); padding: 1.5rem; border-radius: 0.5rem; max-width: 420px; width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+            <h2 style="margin-bottom: 0.25rem; color: var(--primary);">💬 WhatsApp message</h2>
+            <p id="waTo" style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;"></p>
+            <label>Pick a message</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="waPick('reserved')">🔒 Reserved</button>
+                <button type="button" class="btn btn-secondary" onclick="waPick('stock')">📦 Stock arrived</button>
+                <button type="button" class="btn btn-secondary" onclick="waPick('ready')">✅ Ready / delivered</button>
+            </div>
+            <label for="waText">Message (you can edit it)</label>
+            <textarea id="waText" rows="6"></textarea>
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary" style="flex: 1;" onclick="waSend()">Open WhatsApp</button>
+                <button type="button" class="btn btn-danger" style="padding: 0.5rem 1rem; font-size: 0.875rem;" onclick="waClose()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- DASHBOARD SECTION -->
         <section id="dashboard" class="section active">
@@ -1955,6 +1975,7 @@
                                 <option value="collected" ${order.status === 'collected' ? 'selected' : ''}>Collected</option>
                                 <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                             </select>
+                            ${cancelled ? '' : `<button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="openWhatsApp(${order.id})">💬 WhatsApp</button>`}
                             ${cancelled ? '' : `<button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="toggleOrderPaid(${order.id})">${order.paid ? '↩️ Unpay' : '💰 Mark paid'}</button>`}
                             ${order.itemId ? `<button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="editOrder(${order.id})">Edit</button>` : ''}
                             <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="deleteOrder(${order.id})">Delete</button>
@@ -1963,6 +1984,81 @@
                     ${order.notes ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">📝 ${order.notes}</div>` : ''}
                 </div>
             `; }).join('');
+        }
+
+        // ============================================
+        // WHATSAPP MESSAGES (opens WhatsApp with a ready-typed message)
+        // ============================================
+
+        let waOrderId = null;
+
+        // South African numbers -> international format for wa.me (0821234567 -> 27821234567)
+        function waPhone(raw) {
+            let d = String(raw || '').replace(/\D/g, '');
+            if (!d) return '';
+            if (d.startsWith('00')) d = d.slice(2);
+            else if (d.startsWith('0')) d = '27' + d.slice(1);
+            else if (d.length === 9) d = '27' + d;
+            return d;
+        }
+
+        function waItemsText(order) {
+            if (Array.isArray(order.items) && order.items.length) return order.items.map(i => i.name).join(', ');
+            return `${order.itemName} x${order.quantity}`;
+        }
+
+        function waTemplate(kind, order) {
+            const name = String(order.customerName || '').split(' ')[0] || 'there';
+            const items = waItemsText(order);
+            const total = money(order.totalPrice || 0);
+            const t = {
+                reserved: `Hi ${name}! I've reserved ${items} for you. Total: ${total}. Let me know when you'd like to collect it or have it delivered. 😊`,
+                stock: `Hi ${name}! Good news - the stock you were waiting for (${items}) has arrived. Let me know if you'd still like it. 😊`,
+                ready: `Hi ${name}! Your order (${items}) is ready. Total: ${total}. Please let me know if you'd like to collect or have it delivered. Thank you! 😊`
+            };
+            return t[kind];
+        }
+
+        function waOrderPhone(order) {
+            const data = getData();
+            const cust = data.customers.find(c => c.id === order.customerId);
+            return (cust && cust.phone) || order.customerPhone || '';
+        }
+
+        function openWhatsApp(orderId) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === orderId);
+            if (!order) return;
+            if (!waPhone(waOrderPhone(order))) {
+                alert('No phone number saved for this customer. Add one on the Customers tab first.');
+                return;
+            }
+            waOrderId = orderId;
+            document.getElementById('waTo').textContent = `To: ${order.customerName} (${waOrderPhone(order)})`;
+            waPick(order.status === 'pending' ? 'reserved' : 'ready');
+            document.getElementById('waModal').style.display = 'flex';
+        }
+
+        function waPick(kind) {
+            const data = getData();
+            const order = data.orders.find(o => o.id === waOrderId);
+            if (!order) return;
+            document.getElementById('waText').value = waTemplate(kind, order);
+        }
+
+        function waSend() {
+            const data = getData();
+            const order = data.orders.find(o => o.id === waOrderId);
+            if (!order) return;
+            const text = document.getElementById('waText').value.trim();
+            if (!text) { alert('Message is empty'); return; }
+            window.open(`https://wa.me/${waPhone(waOrderPhone(order))}?text=${encodeURIComponent(text)}`, '_blank');
+            waClose();
+        }
+
+        function waClose() {
+            document.getElementById('waModal').style.display = 'none';
+            waOrderId = null;
         }
 
         function editOrder(orderId) {
