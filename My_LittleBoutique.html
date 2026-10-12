@@ -719,6 +719,14 @@
 
             <div>
                 <h2 style="margin: 1.5rem 0 1rem;">Customers</h2>
+                <div class="card" style="padding: 1rem;">
+                    <input type="text" id="customerSearch" placeholder="🔍 Search customers by name or number..." oninput="displayCustomers()" style="margin-bottom: 0.75rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="btn btn-secondary" onclick="selectAllShownCustomers(true)">Select all shown</button>
+                        <button type="button" class="btn" style="background: var(--border);" onclick="selectAllShownCustomers(false)">Clear</button>
+                        <button type="button" class="btn btn-danger" style="padding: 0.5rem 1rem; font-size: 0.875rem;" id="bulkDeleteBtn" onclick="deleteSelectedCustomers()">🗑️ Delete selected (0)</button>
+                    </div>
+                </div>
                 <div id="customersList"></div>
             </div>
         </section>
@@ -766,6 +774,34 @@
                     </div>
                     <button type="submit" class="btn btn-primary">Create Order</button>
                 </form>
+            </div>
+
+            <div class="card">
+                <h2 style="margin-bottom: 0.25rem;">⏳ Waiting on stock</h2>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">Customers waiting for something that is out of stock. When it is back you will see ✅ IN STOCK NOW, then tap WhatsApp to tell them.</p>
+                <form id="waitForm" onsubmit="addWaitlist(event)">
+                    <div class="form-group">
+                        <label for="waitCustomer">Customer *</label>
+                        <select id="waitCustomer" required>
+                            <option value="">Select customer...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="waitItem">What are they waiting for? *</label>
+                        <input type="text" id="waitItem" list="waitItemNames" placeholder="Type or pick an item name" required>
+                        <datalist id="waitItemNames"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="waitQty">Quantity *</label>
+                        <input type="number" id="waitQty" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="waitNote">Note</label>
+                        <input type="text" id="waitNote" placeholder="e.g. wants the gold one">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add to waiting list</button>
+                </form>
+                <div id="waitlistList" style="margin-top: 1rem;"></div>
             </div>
 
             <div>
@@ -945,7 +981,8 @@
             items: [],
             customers: [],
             orders: [],
-            transactions: []
+            transactions: [],
+            waitlist: []
         };
 
         // File Handle API - remembers which file to save to
@@ -1348,7 +1385,8 @@
                     items: pendingFileData.data.items,
                     customers: pendingFileData.data.customers,
                     orders: orders,
-                    transactions: pendingFileData.data.transactions
+                    transactions: pendingFileData.data.transactions,
+                    waitlist: pendingFileData.data.waitlist || []
                 };
 
                 saveData(appData); // marks for Drive sync
@@ -1660,17 +1698,62 @@
             }
         }
 
+        let selectedCustomers = new Set();
+
+        function shownCustomers() {
+            const q = (document.getElementById('customerSearch').value || '').trim().toLowerCase();
+            return getData().customers.filter(c =>
+                !q || String(c.name || '').toLowerCase().includes(q) || String(c.phone || '').includes(q));
+        }
+
+        function updateBulkBar() {
+            const btn = document.getElementById('bulkDeleteBtn');
+            if (btn) btn.textContent = `🗑️ Delete selected (${selectedCustomers.size})`;
+        }
+
+        function toggleCustomerSelect(id, checked) {
+            if (checked) selectedCustomers.add(id); else selectedCustomers.delete(id);
+            updateBulkBar();
+        }
+
+        function selectAllShownCustomers(on) {
+            shownCustomers().forEach(c => { if (on) selectedCustomers.add(c.id); else selectedCustomers.delete(c.id); });
+            displayCustomers();
+        }
+
+        function deleteSelectedCustomers() {
+            const n = selectedCustomers.size;
+            if (n === 0) { alert('Tick the customers you want to delete first.'); return; }
+            if (!confirm(`Delete ${n} customer${n === 1 ? '' : 's'}? Their past orders stay in Orders. This also removes them on every synced device and cannot be undone.`)) return;
+            const data = getData();
+            data.customers = data.customers.filter(c => !selectedCustomers.has(c.id));
+            selectedCustomers.clear();
+            saveData(data);
+            refreshDisplay();
+        }
+
         function displayCustomers() {
             const data = getData();
             const list = document.getElementById('customersList');
+
+            // forget ticks for customers that no longer exist
+            const ids = new Set(data.customers.map(c => c.id));
+            selectedCustomers.forEach(id => { if (!ids.has(id)) selectedCustomers.delete(id); });
+            updateBulkBar();
 
             if (data.customers.length === 0) {
                 list.innerHTML = '<div class="empty">No customers yet.</div>';
                 return;
             }
+            const shown = shownCustomers();
+            if (shown.length === 0) {
+                list.innerHTML = '<div class="empty">No customers match your search.</div>';
+                return;
+            }
 
-            list.innerHTML = data.customers.map(customer => `
+            list.innerHTML = shown.map(customer => `
                 <div class="card">
+                    <label style="margin-bottom: 0.5rem;"><input type="checkbox" ${selectedCustomers.has(customer.id) ? 'checked' : ''} onchange="toggleCustomerSelect(${customer.id}, this.checked)"> Select</label>
                     <div class="item-name">${esc(customer.name)}</div>
                     <div class="item-meta">📞 ${esc(customer.phone)}</div>
                     ${customer.address ? `<div class="item-meta">📍 ${esc(customer.address)}</div>` : ''}
@@ -1807,6 +1890,17 @@
                     : `<option value="${i.id}" disabled>${esc(i.name)} (sold out / reserved)</option>`
                 ).join('');
             itemSelect.value = prevItem;
+
+            // Waiting-list form: customer dropdown + item-name suggestions
+            const waitSel = document.getElementById('waitCustomer');
+            if (waitSel) {
+                const prevWait = waitSel.value;
+                waitSel.innerHTML = '<option value="">Select customer...</option>' +
+                    data.customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+                waitSel.value = prevWait;
+                const names = [...new Set(data.items.map(i => i.name))];
+                document.getElementById('waitItemNames').innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+            }
         }
 
         // Blocks double-taps / double-submits so stock is never deducted twice
@@ -1998,6 +2092,7 @@
         // ============================================
 
         let waOrderId = null;
+        let waPseudo = null; // used for waiting-list entries (no real order yet)
 
         // South African numbers -> international format for wa.me (0821234567 -> 27821234567)
         function waPhone(raw) {
@@ -2041,21 +2136,24 @@
                 return;
             }
             waOrderId = orderId;
+            waPseudo = null;
             document.getElementById('waTo').textContent = `To: ${order.customerName} (${waOrderPhone(order)})`;
             waPick(order.status === 'pending' ? 'reserved' : 'ready');
             document.getElementById('waModal').style.display = 'flex';
         }
 
+        function waCurrent() {
+            return waPseudo || getData().orders.find(o => o.id === waOrderId);
+        }
+
         function waPick(kind) {
-            const data = getData();
-            const order = data.orders.find(o => o.id === waOrderId);
+            const order = waCurrent();
             if (!order) return;
             document.getElementById('waText').value = waTemplate(kind, order);
         }
 
         function waSend() {
-            const data = getData();
-            const order = data.orders.find(o => o.id === waOrderId);
+            const order = waCurrent();
             if (!order) return;
             const text = document.getElementById('waText').value.trim();
             if (!text) { alert('Message is empty'); return; }
@@ -2066,6 +2164,122 @@
         function waClose() {
             document.getElementById('waModal').style.display = 'none';
             waOrderId = null;
+            waPseudo = null;
+        }
+
+        // ============================================
+        // WAITING ON STOCK
+        // ============================================
+
+        function getWaitlist(data) {
+            if (!Array.isArray(data.waitlist)) data.waitlist = [];
+            return data.waitlist;
+        }
+
+        // An in-stock inventory item whose name matches what the customer is waiting for
+        function waitlistStockMatch(data, entry) {
+            const name = String(entry.itemName || '').trim().toLowerCase();
+            return data.items.find(i => String(i.name || '').trim().toLowerCase() === name && i.quantity > 0) || null;
+        }
+
+        function addWaitlist(e) {
+            e.preventDefault();
+            const data = getData();
+            const customerId = parseInt(document.getElementById('waitCustomer').value);
+            const customer = data.customers.find(c => c.id === customerId);
+            const itemName = document.getElementById('waitItem').value.trim();
+            const quantity = parseInt(document.getElementById('waitQty').value);
+            if (!customer || !itemName) {
+                alert('Please choose a customer and say what they are waiting for.');
+                return;
+            }
+            if (!Number.isInteger(quantity) || quantity < 1) {
+                alert('Quantity must be 1 or more');
+                return;
+            }
+            getWaitlist(data).push({
+                id: Date.now(),
+                customerId: customerId,
+                customerName: customer.name,
+                customerPhone: customer.phone,
+                itemName: itemName,
+                quantity: quantity,
+                note: document.getElementById('waitNote').value.trim(),
+                dateAdded: todayISO()
+            });
+            saveData(data);
+            document.getElementById('waitForm').reset();
+            refreshDisplay();
+        }
+
+        function removeWaitlist(id) {
+            if (!confirm('Remove from the waiting list?')) return;
+            const data = getData();
+            data.waitlist = getWaitlist(data).filter(w => w.id !== id);
+            saveData(data);
+            refreshDisplay();
+        }
+
+        function displayWaitlist() {
+            const list = document.getElementById('waitlistList');
+            if (!list) return;
+            const data = getData();
+            const w = getWaitlist(data);
+            if (w.length === 0) {
+                list.innerHTML = '<div class="empty">Nobody is waiting on stock.</div>';
+                return;
+            }
+            const rows = w.map(e => ({ e: e, match: waitlistStockMatch(data, e) }));
+            rows.sort((a, b) => (b.match ? 1 : 0) - (a.match ? 1 : 0)); // back-in-stock first
+            list.innerHTML = rows.map(({ e, match }) => `
+                <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem;">
+                    <div style="font-weight: 600; font-size: 0.95rem;">${esc(e.customerName)}</div>
+                    <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">📦 ${esc(e.itemName)} x${e.quantity} | 📅 ${esc(e.dateAdded)}</div>
+                    ${e.note ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">📝 ${esc(e.note)}</div>` : ''}
+                    ${match ? `<div style="margin-top: 0.5rem;"><span style="background: #dcfce7; color: #166534; padding: 0.15rem 0.45rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600;">✅ IN STOCK NOW (${match.quantity} available)</span></div>` : ''}
+                    <div class="btn-group" style="margin-top: 0.75rem; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="openWaitlistWhatsApp(${e.id})">💬 WhatsApp</button>
+                        ${match ? `<button class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="waitlistToOrder(${e.id})">🛒 Make order</button>` : ''}
+                        <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="removeWaitlist(${e.id})">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openWaitlistWhatsApp(entryId) {
+            const entry = getWaitlist(getData()).find(w => w.id === entryId);
+            if (!entry) return;
+            const pseudo = {
+                customerId: entry.customerId,
+                customerName: entry.customerName,
+                customerPhone: entry.customerPhone,
+                itemName: entry.itemName,
+                quantity: entry.quantity,
+                totalPrice: 0,
+                status: 'pending'
+            };
+            if (!waPhone(waOrderPhone(pseudo))) {
+                alert('No phone number saved for this customer. Add one on the Customers tab first.');
+                return;
+            }
+            waOrderId = null;
+            waPseudo = pseudo;
+            document.getElementById('waTo').textContent = `To: ${pseudo.customerName} (${waOrderPhone(pseudo)})`;
+            waPick('stock');
+            document.getElementById('waModal').style.display = 'flex';
+        }
+
+        // Pre-fills the New Order form; she still presses Create Order
+        function waitlistToOrder(entryId) {
+            const data = getData();
+            const entry = getWaitlist(data).find(w => w.id === entryId);
+            if (!entry) return;
+            const match = waitlistStockMatch(data, entry);
+            if (!match) { alert('Not in stock yet.'); return; }
+            document.getElementById('orderCustomer').value = entry.customerId;
+            document.getElementById('orderItem').value = match.id;
+            document.getElementById('orderQuantity').value = Math.min(entry.quantity, match.quantity);
+            document.getElementById('orderForm').scrollIntoView({ behavior: 'smooth' });
         }
 
         function editOrder(orderId) {
@@ -2624,6 +2838,7 @@
             displayInventory();
             displayCustomers();
             displayOrders();
+            displayWaitlist();
             displayTransactions();
             updateStats();
             updateOrderSelects();
@@ -2657,7 +2872,8 @@
                         items: [],
                         customers: [],
                         orders: [],
-                        transactions: []
+                        transactions: [],
+            waitlist: []
                     };
                     alert('All data cleared from memory');
                     refreshDisplay();
@@ -2940,7 +3156,8 @@
                 items: d.items,
                 customers: d.customers || [],
                 orders: (d.orders || []).map(o => ({ ...o, paid: o.paid !== undefined ? o.paid : false, paidDate: o.paidDate || null })),
-                transactions: d.transactions || []
+                transactions: d.transactions || [],
+                waitlist: d.waitlist || []
             };
             saveToIndexedDB(appData);
             lastSavedJSON = JSON.stringify(appData);
@@ -3047,7 +3264,8 @@
                             items: backup.data.items,
                             customers: backup.data.customers,
                             orders: orders,
-                            transactions: backup.data.transactions
+                            transactions: backup.data.transactions,
+                            waitlist: backup.data.waitlist || []
                         };
 
                         lastSavedJSON = JSON.stringify(appData);
