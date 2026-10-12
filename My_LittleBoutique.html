@@ -3021,7 +3021,12 @@
             lastTokenAttempt = Date.now();
             return new Promise((resolve) => {
                 tokenResolve = resolve;
-                tokenClient.requestAccessToken({ prompt: prompt || '' });
+                // Tell Google which account to use so it can skip the account chooser
+                // (not used when she deliberately switches accounts)
+                const email = localStorage.getItem('driveEmail');
+                const opts = { prompt: prompt || '' };
+                if (email && email.includes('@') && !prompt) { opts.hint = email; opts.login_hint = email; }
+                tokenClient.requestAccessToken(opts);
                 setTimeout(() => { if (tokenInFlight) finishToken(false); }, 120000);
             });
         }
