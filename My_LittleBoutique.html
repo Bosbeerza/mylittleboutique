@@ -658,12 +658,6 @@
                         <input type="text" id="itemSeller" placeholder="Your name or business name">
                     </div>
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="itemActive">
-                            Active (Show on public shop)
-                        </label>
-                    </div>
-                    <div class="form-group">
                         <label>Picture (Optional)</label>
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <button type="button" class="btn btn-secondary" onclick="document.getElementById('itemImageCamera').click()">📷 Take photo</button>
@@ -1483,7 +1477,6 @@
                 sellingPrice: parseFloat(document.getElementById('itemPrice').value),
                 description: document.getElementById('itemDescription').value,
                 seller: document.getElementById('itemSeller').value || 'Shop',
-                active: document.getElementById('itemActive').checked,
                 image: image,
                 dateAdded: new Date().toLocaleDateString()
             });
@@ -1548,7 +1541,6 @@
                         ? `<span style="background: #fef3c7; color: #b45309; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🔒 RESERVED</span>`
                         : `<span style="background: #fee2e2; color: #991b1b; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">SOLD OUT</span>`)
                     : '';
-                const isActive = item.active || false;
                 return `
                 <div class="item-card">
                     ${item.image ? `<img src="${item.image}" class="item-image">` : ''}
@@ -1557,9 +1549,6 @@
                             <div>
                                 <div class="item-name">${item.name}</div>
                                 <div class="item-meta">👤 ${item.seller || 'Shop'}</div>
-                            </div>
-                            <div style="text-align: right; font-size: 0.75rem;">
-                                ${isActive ? `<span style="background: #dcfce7; color: #166534; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">🛍️ ACTIVE</span>` : `<span style="background: #f3f4f6; color: #6b7280; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">INACTIVE</span>`}
                             </div>
                         </div>
                         <div class="item-meta">📦 ${item.quantity} available${reserved > 0 ? ` | 🔒 ${reserved} reserved` : ''} ${lockBadge} | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
@@ -1588,7 +1577,6 @@
             document.getElementById('itemPrice').value = item.sellingPrice;
             document.getElementById('itemDescription').value = item.description;
             document.getElementById('itemSeller').value = item.seller || '';
-            document.getElementById('itemActive').checked = item.active || false;
             updateProfitPreview();
             
             // Change form submission to update mode
@@ -1614,7 +1602,6 @@
             item.sellingPrice = parseFloat(document.getElementById('itemPrice').value);
             item.description = document.getElementById('itemDescription').value;
             item.seller = document.getElementById('itemSeller').value || 'Shop';
-            item.active = document.getElementById('itemActive').checked;
 
             // Only replace the picture if a new one was chosen
             const file = getSelectedImageFile();
@@ -1950,7 +1937,6 @@
                 const inFinance = data.transactions.some(t => t.linkedOrderId === order.id);
 
                 const chips = [
-                    order.source === 'storefront' ? chip('#2563eb20', '#2563eb', '🛍️ STOREFRONT') : '',
                     order.status === 'pending' && order.itemId ? chip('#fef3c7', '#b45309', '🔒 RESERVED') : '',
                     cancelled ? '' : (order.paid ? chip('#dcfce7', '#166534', `✅ PAID ${order.paidDate || ''}`) : chip('#fee2e2', '#991b1b', '⏳ UNPAID')),
                     inFinance ? chip('#e0e7ff', '#3730a3', '💵 IN FINANCE') : ''
