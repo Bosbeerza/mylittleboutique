@@ -505,21 +505,27 @@
             </div>
 
             <div style="margin-bottom: 1.5rem;">
-                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">📂 Load Your Data</h3>
-                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Go to Settings → Data Management → Load Data</p>
-                <p style="font-size: 0.875rem; color: #64748b;">Select your JSON backup file and click "Load File"</p>
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">☁️ Connect Google Drive</h3>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">Go to Settings → Google Drive Sync → "Connect / Sync now" and sign in.</p>
+                <p style="font-size: 0.875rem; color: #64748b;">Your shop file (myshop.json) lives in that Google Drive, so every phone or PC signed in to it sees the same data.</p>
             </div>
 
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">✅ Everything Auto-Saves</h3>
-                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ Every 30 seconds (see indicator in top bar)</p>
-                <p style="font-size: 0.875rem; color: #64748b;">✓ When you close the app</p>
-                <p style="font-size: 0.875rem; color: #64748b; margin-top: 0.5rem;">You don't need to do anything!</p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ Every change is saved on this device straight away</p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ It goes up to Google Drive a few seconds later</p>
+                <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 0.5rem;">✓ No signal? It waits and sends when you are back online</p>
+                <p style="font-size: 0.875rem; color: #64748b;">✓ Opening the app picks up changes made on another device</p>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">📥 Backup (optional)</h3>
+                <p style="font-size: 0.875rem; color: #64748b;">Settings → Data Management → "Export as JSON" saves a copy to your downloads. "Load File" is only for restoring a copy.</p>
             </div>
 
             <div style="margin-bottom: 1.5rem;">
                 <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary);">🔒 Lock App</h3>
-                <p style="font-size: 0.875rem; color: #64748b;">Click 🔒 button in top-right anytime</p>
+                <p style="font-size: 0.875rem; color: #64748b;">Tap the 🔒 button anytime. The app also locks itself after 5 minutes of no use.</p>
             </div>
 
             <button class="btn btn-primary" onclick="closeSetupGuide()" style="width: 100%; margin-top: 1rem;">Got It! Let's Go 🚀</button>
@@ -927,8 +933,9 @@
 
     <script>
         // ============================================
-        // DATA STORAGE - File-Based (JSON)
-        // All data is stored in memory. Must export to JSON to save.
+        // DATA STORAGE
+        // Data lives in memory, is saved on the device (IndexedDB) after every change,
+        // and is synced to a single myshop.json in Google Drive. JSON export is an optional backup.
         // ============================================
 
         const APP_NAME = 'My Little Boutique';
@@ -1353,7 +1360,7 @@
                 }
 
                 document.getElementById('fileLoad').value = '';
-                document.getElementById('fileLoadStatus').innerHTML = '<div style="color: var(--secondary); font-weight: 600;">✅ Data loaded! Syncing to: <strong>' + fileName + '</strong></div>';
+                document.getElementById('fileLoadStatus').innerHTML = '<div style="color: var(--secondary); font-weight: 600;">✅ Data loaded! Syncing to: <strong>' + esc(fileName) + '</strong></div>';
                 
                 // Start auto-save (will save to file + IndexedDB)
                 startAutoSave();
@@ -1547,15 +1554,15 @@
                     <div class="item-info">
                         <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
                             <div>
-                                <div class="item-name">${item.name}</div>
-                                <div class="item-meta">👤 ${item.seller || 'Shop'}</div>
+                                <div class="item-name">${esc(item.name)}</div>
+                                <div class="item-meta">👤 ${esc(item.seller || 'Shop')}</div>
                             </div>
                         </div>
                         <div class="item-meta">📦 ${item.quantity} available${reserved > 0 ? ` | 🔒 ${reserved} reserved` : ''} ${lockBadge} | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
                         ${isLowStock ? `<div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 0.5rem; border-radius: 0.25rem; margin-top: 0.5rem;"><span style="color: #b45309; font-weight: 600;">⚠️ Low Stock Alert</span></div>` : ''}
                         <div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
                         <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>
-                        <div class="item-meta" style="margin-top: 0.5rem; color: #94a3b8;">${item.description || 'No description'}</div>
+                        <div class="item-meta" style="margin-top: 0.5rem; color: #94a3b8;">${esc(item.description || 'No description')}</div>
                     </div>
                     <div class="btn-group">
                         <button class="btn btn-primary" onclick="editItem(${item.id})">Edit</button>
@@ -1664,10 +1671,10 @@
 
             list.innerHTML = data.customers.map(customer => `
                 <div class="card">
-                    <div class="item-name">${customer.name}</div>
-                    <div class="item-meta">📞 ${customer.phone}</div>
-                    ${customer.address ? `<div class="item-meta">📍 ${customer.address}</div>` : ''}
-                    ${customer.notes ? `<div class="item-meta" style="margin-top: 0.5rem;">📝 ${customer.notes}</div>` : ''}
+                    <div class="item-name">${esc(customer.name)}</div>
+                    <div class="item-meta">📞 ${esc(customer.phone)}</div>
+                    ${customer.address ? `<div class="item-meta">📍 ${esc(customer.address)}</div>` : ''}
+                    ${customer.notes ? `<div class="item-meta" style="margin-top: 0.5rem;">📝 ${esc(customer.notes)}</div>` : ''}
                     <div class="btn-group" style="margin-top: 1rem;">
                         <button class="btn btn-primary" onclick="editCustomer(${customer.id})">Edit</button>
                         <button class="btn btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button>
@@ -1789,21 +1796,31 @@
             const customerSelect = document.getElementById('orderCustomer');
             const prevCustomer = customerSelect.value;
             customerSelect.innerHTML = '<option value="">Select customer...</option>' +
-                data.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                data.customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
             customerSelect.value = prevCustomer;
 
             const itemSelect = document.getElementById('orderItem');
             const prevItem = itemSelect.value;
             itemSelect.innerHTML = '<option value="">Select item...</option>' +
                 data.items.map(i => i.quantity > 0
-                    ? `<option value="${i.id}">${i.name} (${i.quantity} available)</option>`
-                    : `<option value="${i.id}" disabled>${i.name} (sold out / reserved)</option>`
+                    ? `<option value="${i.id}">${esc(i.name)} (${i.quantity} available)</option>`
+                    : `<option value="${i.id}" disabled>${esc(i.name)} (sold out / reserved)</option>`
                 ).join('');
             itemSelect.value = prevItem;
         }
 
+        // Blocks double-taps / double-submits so stock is never deducted twice
+        let orderBusy = false;
+        function lockOrderForm() {
+            if (orderBusy) return false;
+            orderBusy = true;
+            setTimeout(() => { orderBusy = false; }, 800);
+            return true;
+        }
+
         function addOrder(e) {
             e.preventDefault();
+            if (!lockOrderForm()) return;
             const data = getData();
 
             const customerId = parseInt(document.getElementById('orderCustomer').value);
@@ -1814,6 +1831,10 @@
             const customer = data.customers.find(c => c.id === customerId);
             if (!item || !customer) {
                 alert('Please select a customer and an item');
+                return;
+            }
+            if (!Number.isInteger(quantity) || quantity < 1) {
+                alert('Quantity must be 1 or more');
                 return;
             }
             // Soft lock: cannot order more than what is still available
@@ -1946,9 +1967,9 @@
                 <div style="background: var(--card); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem; ${cancelled ? 'opacity: 0.6;' : ''}">
                     <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start;">
                         <div>
-                            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">${order.customerName}</div>
+                            <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem;">${esc(order.customerName)}</div>
                             <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.35rem;">${chips}</div>
-                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${orderItemsText(order)}</div>
+                            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">📦 ${esc(orderItemsText(order))}</div>
                             <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">💰 R${order.totalPrice.toFixed(2)} | 📅 ${order.dateCreated}</div>
                             <div style="font-size: 0.8rem; margin-top: 0.5rem; padding: 0.4rem; background: ${color}20; border-left: 3px solid ${color}; border-radius: 0.25rem;">
                                 <span style="color: ${color}; font-weight: 600;">📍 ${order.status.toUpperCase()}</span>
@@ -1967,7 +1988,7 @@
                             <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="deleteOrder(${order.id})">Delete</button>
                         </div>
                     </div>
-                    ${order.notes ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">📝 ${order.notes}</div>` : ''}
+                    ${order.notes ? `<div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">📝 ${esc(order.notes)}</div>` : ''}
                 </div>
             `; }).join('');
         }
@@ -2066,12 +2087,24 @@
 
         function updateOrder(e, orderId) {
             e.preventDefault();
+            if (!lockOrderForm()) return;
             const data = getData();
             const order = data.orders.find(o => o.id === orderId);
+            if (!order) {
+                // Order was deleted or changed (e.g. from another device) while the form was open
+                alert('This order no longer exists. It may have been changed on another device.');
+                resetOrderForm();
+                refreshDisplay();
+                return;
+            }
             const item = data.items.find(i => i.id === order.itemId);
             const cancelled = order.status === 'cancelled';
 
             const newQuantity = parseInt(document.getElementById('orderQuantity').value);
+            if (!Number.isInteger(newQuantity) || newQuantity < 1) {
+                alert('Quantity must be 1 or more');
+                return;
+            }
             const diff = newQuantity - order.quantity;
 
             // Soft lock when adding more units
@@ -2231,7 +2264,7 @@
                 <div class="transaction" style="flex-wrap: wrap;">
                     <div>
                         <div class="transaction-type">${trans.type === 'income' ? '💵 Income' : '💸 Expense'}${trans.auto ? ' <span style="font-size: 0.7rem; background: #2563eb20; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">🔗 ORDER</span>' : ''}</div>
-                        <div class="item-meta">${trans.description}</div>
+                        <div class="item-meta">${esc(trans.description)}</div>
                         <div class="item-meta">${trans.date}</div>
                         ${allocBadges(trans)}
                     </div>
@@ -2278,7 +2311,7 @@
             );
 
             if (filtered.length === 0) {
-                list.innerHTML = '<div class="empty">No transactions found matching "' + searchQuery + '"</div>';
+                list.innerHTML = '<div class="empty">No transactions found matching "' + esc(searchQuery) + '"</div>';
                 return;
             }
 
@@ -2299,7 +2332,7 @@
             return (n < 0 ? '-' : '') + 'R' + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
         }
         function esc(v) {
-            return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+            return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
         function setText(id, text) {
             const el = document.getElementById(id);
