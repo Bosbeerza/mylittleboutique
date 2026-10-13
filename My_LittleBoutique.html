@@ -664,6 +664,25 @@
         <section id="inventory" class="section">
             <h1 style="margin-bottom: 1rem;">Inventory Management</h1>
 
+            <div class="card compact-form">
+                <h2 style="margin-bottom: 0.25rem;">⚡ Quick Add</h2>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.75rem;">Photo + price is all you need. Fill in the rest later with Edit.</p>
+                <form id="quickAddForm" onsubmit="quickAdd(event)">
+                    <div class="form-group">
+                        <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="document.getElementById('qaImageCamera').click()">📷 Take photo</button>
+                        <input type="file" id="qaImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="qaPreview()">
+                        <img id="qaPreview" alt="Preview" style="display: none; max-width: 120px; max-height: 120px; margin-top: 0.5rem; border-radius: 0.375rem; object-fit: cover;">
+                    </div>
+                    <div class="pair">
+                        <div class="form-group"><label for="qaPrice">Selling price (R) *</label><input type="number" id="qaPrice" min="0" step="0.01" inputmode="decimal" required></div>
+                        <div class="form-group"><label for="qaQty">Qty</label><input type="number" id="qaQty" min="1" value="1"></div>
+                    </div>
+                    <div class="form-group"><label for="qaName">Name (optional)</label><input type="text" id="qaName" placeholder="New item"></div>
+                    <button type="submit" class="btn btn-primary" id="qaBtn" style="width: 100%;">Save item</button>
+                    <div id="qaMsg" style="font-size: 0.85rem; color: var(--secondary); font-weight: 600; margin-top: 0.5rem;"></div>
+                </form>
+            </div>
+
             <div class="card">
                 <h2 style="margin-bottom: 1rem;">Add New Item</h2>
                 <form id="itemForm" class="compact-form" onsubmit="addItem(event)">
@@ -1648,8 +1667,8 @@
                         </div>
                         <div class="item-meta">📦 ${item.quantity} available${reserved > 0 ? ` | 🔒 ${reserved} reserved` : ''} ${lockBadge} | <span style="background: ${item.condition === 'new' ? '#dcfce7' : '#fed7aa'}; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 500; color: ${item.condition === 'new' ? '#166534' : '#b45309'};">${item.condition.toUpperCase()}</span></div>
                         ${isLowStock ? `<div style="margin-top: 0.25rem;"><span style="background: #fef3c7; color: #b45309; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">⚠️ Low stock</span></div>` : ''}
-                        <div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
-                        <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>
+                        ${item.needsCost ? `<div class="item-meta"><span style="background: #fef3c7; color: #b45309; font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 0.25rem;">💰 Needs cost price</span> Price: R${item.sellingPrice.toFixed(2)}</div>` : `<div class="item-meta">💰 Cost: R${item.costPrice.toFixed(2)} → Price: R${item.sellingPrice.toFixed(2)}</div>
+                        <div class="item-meta" style="font-weight: 600; color: ${item.sellingPrice - item.costPrice >= 0 ? '#166534' : '#991b1b'};">📈 Profit: R${(item.sellingPrice - item.costPrice).toFixed(2)} each (${item.sellingPrice > 0 ? (((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100).toFixed(0) : 0}%)</div>`}
                         <div class="item-meta" style="margin-top: 0.5rem; color: #94a3b8;">${esc(item.description || 'No description')}</div>
                     </div>
                     <div class="btn-group">
@@ -1685,6 +1704,53 @@
             form.scrollIntoView({ behavior: 'smooth' });
         }
 
+        // ---- Quick Add: photo + price, rest filled in later ----
+        let qaBusy = false;
+        function qaPreview() {
+            const f = document.getElementById('qaImageCamera').files[0];
+            const p = document.getElementById('qaPreview');
+            if (f) { p.src = URL.createObjectURL(f); p.style.display = 'block'; } else { p.style.display = 'none'; }
+        }
+        async function quickAdd(e) {
+            e.preventDefault();
+            if (qaBusy) return;
+            qaBusy = true;
+            try {
+                const price = parseFloat(document.getElementById('qaPrice').value);
+                if (isNaN(price) || price < 0) { alert('Please enter a selling price.'); return; }
+                const qty = Math.max(1, parseInt(document.getElementById('qaQty').value) || 1);
+                const file = document.getElementById('qaImageCamera').files[0];
+                let image = null;
+                if (file) {
+                    try { image = await resizeImage(file); }
+                    catch (err) { alert('Could not read the picture. Item saved without it.'); }
+                }
+                const data = getData();
+                data.items.push({
+                    id: Date.now(),
+                    name: document.getElementById('qaName').value.trim() || 'New item',
+                    quantity: qty,
+                    condition: 'used',
+                    costPrice: 0,
+                    sellingPrice: price,
+                    description: '',
+                    seller: 'Shop',
+                    image: image,
+                    dateAdded: new Date().toLocaleDateString(),
+                    needsCost: true
+                });
+                saveData(data);
+                document.getElementById('quickAddForm').reset();
+                qaPreview();
+                refreshDisplay();
+                const m = document.getElementById('qaMsg');
+                m.textContent = '✅ Saved';
+                setTimeout(() => { m.textContent = ''; }, 2500);
+            } finally {
+                qaBusy = false;
+            }
+        }
+
         async function updateItem(e, itemId) {
             e.preventDefault();
             const data = getData();
@@ -1697,6 +1763,7 @@
             item.sellingPrice = parseFloat(document.getElementById('itemPrice').value);
             item.description = document.getElementById('itemDescription').value;
             item.seller = document.getElementById('itemSeller').value || 'Shop';
+            delete item.needsCost; // she has reviewed the cost now
 
             // Only replace the picture if a new one was chosen
             const file = getSelectedImageFile();
@@ -2734,6 +2801,8 @@
             const low = data.items.filter(i => i.condition === 'new' && i.quantity > 0 && i.quantity < 5);
             if (low.length) attn.push({ icon: '⚠️', text: 'Low stock: ' + low.slice(0, 3).map(i => `${esc(i.name)} (${i.quantity})`).join(', ') + (low.length > 3 ? ` +${low.length - 3} more` : ''), section: 'inventory' });
             const out = data.items.filter(i => i.quantity <= 0).length;
+            const noCost = data.items.filter(i => i.needsCost).length;
+            if (noCost) attn.push({ icon: '💰', text: `${noCost} item${noCost === 1 ? '' : 's'} need a cost price`, section: 'inventory' });
             if (out) attn.push({ icon: '🚫', text: `${out} item${out === 1 ? '' : 's'} sold out or fully reserved`, section: 'inventory' });
             document.getElementById('attentionList').innerHTML = attn.length
                 ? attn.map(a => `<div class="attn" onclick="showSection('${a.section}')"><span>${a.icon}</span><span>${a.text}</span><span class="chev">›</span></div>`).join('')
