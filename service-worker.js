@@ -1,12 +1,11 @@
 // Little Boutique service worker
 // Bump CACHE_VERSION whenever you upload a new version of the app,
 // so phones drop the old cached copy.
-const CACHE_VERSION = 'boutique-v11';
+const CACHE_VERSION = 'boutique-v12';
 
 const APP_FILES = [
   './',
   './My_LittleBoutique.html',
-  './Storefront.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -17,7 +16,7 @@ const APP_FILES = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) =>
-      // one failing file (e.g. Storefront not uploaded yet) won't block install
+      // one failing file won't block install
       Promise.all(APP_FILES.map((url) => cache.add(url).catch(() => {})))
     )
   );
