@@ -105,8 +105,8 @@
             background: var(--card);
             color: var(--text);
             height: 2.4rem;
-            font-size: 0.85rem;
-            padding: 0.4rem 0.5rem;
+            font-size: 0.75rem;
+            padding: 0.4rem 0.25rem;
         }
         .date-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
         .date-grid .form-group { margin-bottom: 0; min-width: 0; }
@@ -504,6 +504,12 @@
         .picker-info { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
         .picker-info b { display: block; font-size: 0.8rem; }
         .picker-desc { color: #64748b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        #cropModal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1600; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; padding: 1rem; }
+        #cropModal.open { display: flex; }
+        #cropCanvas { background: #000; border-radius: 0.5rem; touch-action: none; cursor: grab; }
+        #cropModal .crop-hint { color: #e2e8f0; font-size: 0.8rem; }
+        #cropModal input[type=range] { width: min(90vw, 380px); }
+        #cropModal .crop-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
     </style>
 </head>
 <body>
@@ -670,7 +676,7 @@
                 <form id="quickAddForm" onsubmit="quickAdd(event)">
                     <div class="form-group">
                         <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="document.getElementById('qaImageCamera').click()">📷 Take photo</button>
-                        <input type="file" id="qaImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="qaPreview()">
+                        <input type="file" id="qaImageCamera" accept="image/*" capture="environment" style="display: none;" onchange="qaPicked()">
                         <img id="qaPreview" alt="Preview" style="display: none; max-width: 120px; max-height: 120px; margin-top: 0.5rem; border-radius: 0.375rem; object-fit: cover;">
                     </div>
                     <div class="pair">
@@ -1033,6 +1039,17 @@
                 <button type="button" class="btn btn-danger" style="font-size:0.875rem;padding:0.5rem 0.75rem;" onclick="closeItemPicker()">✕</button>
             </div>
             <div id="pickerGrid" class="picker-grid"></div>
+        </div>
+    </div>
+
+    <div id="cropModal">
+        <div class="crop-hint">Drag to move · slider to zoom</div>
+        <canvas id="cropCanvas"></canvas>
+        <input type="range" id="cropZoom" min="1" max="4" step="0.01" value="1" oninput="cropZoomChanged(this.value)">
+        <div class="crop-btns">
+            <button type="button" class="btn btn-primary" onclick="cropDone('use')">✂️ Crop &amp; use</button>
+            <button type="button" class="btn btn-secondary" onclick="cropDone('full')">Use full photo</button>
+            <button type="button" class="btn btn-danger" style="padding: 0.5rem 1rem; font-size: 0.875rem;" onclick="cropDone('cancel')">Cancel</button>
         </div>
     </div>
 
@@ -1512,17 +1529,24 @@
         }
 
         // Show preview; only one of the two inputs holds a file at a time
-        function onImagePicked(source) {
+        let itemCropped = null; // cropped photo (data URL), if she cropped it
+        async function onImagePicked(source) {
             const other = source === 'camera' ? 'itemImage' : 'itemImageCamera';
             document.getElementById(other).value = '';
             const file = getSelectedImageFile();
             const preview = document.getElementById('imagePreview');
-            if (file) {
-                preview.src = URL.createObjectURL(file);
-                preview.style.display = 'block';
-            } else {
+            itemCropped = null;
+            if (!file) { preview.style.display = 'none'; return; }
+            const r = await cropImage(file);
+            if (r === null) {
+                document.getElementById('itemImageCamera').value = '';
+                document.getElementById('itemImage').value = '';
                 preview.style.display = 'none';
+                return;
             }
+            itemCropped = r === 'full' ? null : r;
+            preview.src = itemCropped || URL.createObjectURL(file);
+            preview.style.display = 'block';
         }
 
         // Shrink photo (max 800px, JPEG) so phone photos don't bloat the database
@@ -1566,6 +1590,7 @@
         ['itemCost', 'itemPrice', 'itemQuantity'].forEach(id =>
             document.getElementById(id).addEventListener('input', updateProfitPreview));
         document.getElementById('itemForm').addEventListener('reset', () => {
+            itemCropped = null;
             setTimeout(() => {
                 updateProfitPreview();
                 document.getElementById('imagePreview').style.display = 'none';
@@ -1578,7 +1603,7 @@
             const file = getSelectedImageFile();
             let image = null;
             if (file) {
-                try { image = await resizeImage(file); }
+                try { image = itemCropped || await resizeImage(file); }
                 catch (err) { alert('Could not read the picture. Item saved without it.'); }
             }
 
@@ -1704,8 +1729,94 @@
             form.scrollIntoView({ behavior: 'smooth' });
         }
 
+        // ---- Crop a photo to a square before saving ----
+        // cropImage(file) resolves: a data URL (cropped) | 'full' (use whole photo) | null (cancelled)
+        let cropState = null, cropResolve = null;
+        function cropImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    cropResolve = resolve;
+                    const S = Math.floor(Math.min(window.innerWidth * 0.9, 380));
+                    const c = document.getElementById('cropCanvas');
+                    c.width = S; c.height = S;
+                    c.style.width = S + 'px'; c.style.height = S + 'px';
+                    const base = S / Math.min(img.width, img.height);
+                    cropState = { img, url, S, base, zoom: 1, x: (S - img.width * base) / 2, y: (S - img.height * base) / 2, last: null };
+                    document.getElementById('cropZoom').value = 1;
+                    cropDraw();
+                    document.getElementById('cropModal').classList.add('open');
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); resolve('full'); };
+                img.src = url;
+            });
+        }
+        function cropClamp() {
+            const st = cropState;
+            const w = st.img.width * st.base * st.zoom, h = st.img.height * st.base * st.zoom;
+            st.x = Math.min(0, Math.max(st.S - w, st.x));
+            st.y = Math.min(0, Math.max(st.S - h, st.y));
+        }
+        function cropDraw() {
+            const st = cropState, c = document.getElementById('cropCanvas'), ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, st.S, st.S);
+            ctx.drawImage(st.img, st.x, st.y, st.img.width * st.base * st.zoom, st.img.height * st.base * st.zoom);
+        }
+        function cropZoomChanged(v) {
+            const st = cropState; if (!st) return;
+            const oldScale = st.base * st.zoom;
+            const cx = (st.S / 2 - st.x) / oldScale, cy = (st.S / 2 - st.y) / oldScale; // image point at the centre
+            st.zoom = parseFloat(v);
+            const newScale = st.base * st.zoom;
+            st.x = st.S / 2 - cx * newScale; st.y = st.S / 2 - cy * newScale;
+            cropClamp(); cropDraw();
+        }
+        (function () {
+            const c = document.getElementById('cropCanvas');
+            c.addEventListener('pointerdown', (e) => { if (!cropState) return; c.setPointerCapture(e.pointerId); cropState.last = { x: e.clientX, y: e.clientY }; });
+            c.addEventListener('pointermove', (e) => {
+                const st = cropState; if (!st || !st.last) return;
+                st.x += e.clientX - st.last.x; st.y += e.clientY - st.last.y;
+                st.last = { x: e.clientX, y: e.clientY };
+                cropClamp(); cropDraw();
+            });
+            const end = () => { if (cropState) cropState.last = null; };
+            c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+        })();
+        function cropDone(mode) {
+            const st = cropState; if (!st) return;
+            let result = null;
+            if (mode === 'use') {
+                const out = document.createElement('canvas');
+                out.width = out.height = 800;
+                const k = 800 / st.S, scale = st.base * st.zoom;
+                out.getContext('2d').drawImage(st.img, st.x * k, st.y * k, st.img.width * scale * k, st.img.height * scale * k);
+                result = out.toDataURL('image/jpeg', 0.82);
+            } else if (mode === 'full') {
+                result = 'full';
+            }
+            URL.revokeObjectURL(st.url);
+            cropState = null;
+            document.getElementById('cropModal').classList.remove('open');
+            const r = cropResolve; cropResolve = null;
+            if (r) r(result);
+        }
+
         // ---- Quick Add: photo + price, rest filled in later ----
         let qaBusy = false;
+        let qaImage = null; // cropped photo (data URL), if she cropped it
+        async function qaPicked() {
+            const f = document.getElementById('qaImageCamera').files[0];
+            const p = document.getElementById('qaPreview');
+            qaImage = null;
+            if (!f) { p.style.display = 'none'; return; }
+            const r = await cropImage(f);
+            if (r === null) { document.getElementById('qaImageCamera').value = ''; p.style.display = 'none'; return; }
+            qaImage = r === 'full' ? null : r;
+            p.src = qaImage || URL.createObjectURL(f);
+            p.style.display = 'block';
+        }
         function qaPreview() {
             const f = document.getElementById('qaImageCamera').files[0];
             const p = document.getElementById('qaPreview');
@@ -1720,8 +1831,8 @@
                 if (isNaN(price) || price < 0) { alert('Please enter a selling price.'); return; }
                 const qty = Math.max(1, parseInt(document.getElementById('qaQty').value) || 1);
                 const file = document.getElementById('qaImageCamera').files[0];
-                let image = null;
-                if (file) {
+                let image = qaImage;
+                if (!image && file) {
                     try { image = await resizeImage(file); }
                     catch (err) { alert('Could not read the picture. Item saved without it.'); }
                 }
@@ -1741,6 +1852,7 @@
                 });
                 saveData(data);
                 document.getElementById('quickAddForm').reset();
+                qaImage = null;
                 qaPreview();
                 refreshDisplay();
                 const m = document.getElementById('qaMsg');
@@ -1768,7 +1880,7 @@
             // Only replace the picture if a new one was chosen
             const file = getSelectedImageFile();
             if (file) {
-                try { item.image = await resizeImage(file); }
+                try { item.image = itemCropped || await resizeImage(file); }
                 catch (err) { alert('Could not read the new picture. Kept the old one.'); }
             }
 

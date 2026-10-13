@@ -1,7 +1,7 @@
 // Little Boutique service worker
 // Bump CACHE_VERSION whenever you upload a new version of the app,
 // so phones drop the old cached copy.
-const CACHE_VERSION = 'boutique-v13';
+const CACHE_VERSION = 'boutique-v14';
 
 const APP_FILES = [
   './',
